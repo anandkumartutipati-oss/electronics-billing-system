@@ -59,10 +59,10 @@ export const getLowStockAlerts = createAsyncThunk(
 // Get Super Admin Stats
 export const getSuperAdminStats = createAsyncThunk(
     'dashboard/getSuperAdminStats',
-    async (_, thunkAPI) => {
+    async (shopId, thunkAPI) => {
         try {
             const token = thunkAPI.getState().auth.user.token
-            return await dashboardService.getSuperAdminStats(token)
+            return await dashboardService.getSuperAdminStats(token, shopId)
         } catch (error) {
             const message = (error.response && error.response.data && error.response.data.message) || error.message || error.toString()
             return thunkAPI.rejectWithValue(message)

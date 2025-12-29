@@ -32,6 +32,7 @@ const productRoutes = require('./routes/productRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
 const emiRoutes = require('./routes/emiRoutes');
+const discountRoutes = require('./routes/discountRoutes'); // Added discountRoutes require
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 app.use('/api/auth', authRoutes);
@@ -40,6 +41,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/emi', emiRoutes);
+app.use('/api/discounts', discountRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 

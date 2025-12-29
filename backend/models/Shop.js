@@ -15,7 +15,11 @@ const shopSchema = mongoose.Schema({
     state: { type: String, required: true },
     pincode: { type: String, required: true },
     gstNumber: { type: String },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    customCategories: {
+        electronics: { type: [String], default: [] },
+        electrical: { type: [String], default: [] }
+    }
 }, {
     timestamps: true
 });

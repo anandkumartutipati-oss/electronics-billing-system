@@ -6,6 +6,7 @@ import supplierReducer from '../features/suppliers/supplierSlice';
 import invoiceReducer from '../features/invoices/invoiceSlice';
 import emiReducer from '../features/emi/emiSlice';
 import dashboardReducer from '../features/dashboard/dashboardSlice';
+import discountReducer from '../features/discounts/discountSlice';
 
 export const store = configureStore({
     reducer: {
@@ -16,5 +17,6 @@ export const store = configureStore({
         invoices: invoiceReducer,
         emi: emiReducer,
         dashboard: dashboardReducer,
+        discounts: discountReducer,
     },
 });

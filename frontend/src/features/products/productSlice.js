@@ -126,6 +126,7 @@ export const productSlice = createSlice({
             .addCase(createProduct.fulfilled, (state, action) => {
                 state.isLoading = false
                 state.isSuccess = true
+                state.message = 'Product created successfully'
                 state.products.push(action.payload)
             })
             .addCase(createProduct.rejected, (state, action) => {
@@ -178,6 +179,7 @@ export const productSlice = createSlice({
             .addCase(deleteProduct.fulfilled, (state, action) => {
                 state.isLoading = false
                 state.isSuccess = true
+                state.message = 'Product deleted successfully'
                 state.products = state.products.filter(
                     (product) => product._id !== action.meta.arg
                 )
@@ -193,6 +195,7 @@ export const productSlice = createSlice({
             .addCase(updateProduct.fulfilled, (state, action) => {
                 state.isLoading = false
                 state.isSuccess = true
+                state.message = 'Product updated successfully'
                 state.products = state.products.map((product) =>
                     product._id === action.payload._id ? action.payload : product
                 )

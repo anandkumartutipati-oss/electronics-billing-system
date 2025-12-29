@@ -33,8 +33,11 @@ const getLowStockAlerts = async (token) => {
     return response.data
 }
 
-const getSuperAdminStats = async (token) => {
-    const config = { headers: { Authorization: `Bearer ${token}` } }
+const getSuperAdminStats = async (token, shopId = '') => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { shopId }
+    }
     const response = await axios.get(API_URL + 'admin/stats', config)
     return response.data
 }

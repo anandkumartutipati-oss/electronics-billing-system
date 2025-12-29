@@ -102,9 +102,21 @@ const InvoicesList = ({ searchTerm = '' }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium border ${inv.paymentType === 'Cash' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800' :
                                         inv.paymentType === 'EMI' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-100 dark:border-orange-800' :
-                                            'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-800'
+                                            inv.paymentType === 'Mixed' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-100 dark:border-purple-800' :
+                                                'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-800'
                                         }`}>
-                                        {inv.paymentType}
+                                        {inv.paymentType === 'Mixed' ? (
+                                            <>
+                                                Mixed ({
+                                                    [
+                                                        inv.paymentBreakdown?.cash > 0 ? 'Cash' : null,
+                                                        inv.paymentBreakdown?.upi > 0 ? 'UPI' : null,
+                                                        inv.paymentBreakdown?.card > 0 ? 'Card' : null,
+                                                        inv.paymentBreakdown?.emi > 0 ? 'EMI' : null
+                                                    ].filter(Boolean).join(', ')
+                                                })
+                                            </>
+                                        ) : inv.paymentType}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

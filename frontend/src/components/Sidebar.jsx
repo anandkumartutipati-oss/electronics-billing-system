@@ -1,7 +1,14 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Users, FileText, CreditCard, LogOut, Package, Truck, Calculator, Building2, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Users, FileText, CreditCard, LogOut, Package, Truck, Calculator, Building2, TrendingUp, Tag } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout, reset } from '../features/auth/authSlice';
+import { logout, reset as resetAuth } from '../features/auth/authSlice';
+import { reset as resetProducts, clearProducts } from '../features/products/productSlice';
+import { reset as resetShops } from '../features/shops/shopSlice';
+import { reset as resetSuppliers } from '../features/suppliers/supplierSlice';
+import { reset as resetEMIs } from '../features/emi/emiSlice';
+import { reset as resetDashboard } from '../features/dashboard/dashboardSlice';
+import { reset as resetDiscounts } from '../features/discounts/discountSlice';
+import { reset as resetInvoices } from '../features/invoices/invoiceSlice';
 import { useState } from 'react';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -20,7 +27,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     const confirmLogout = () => {
         dispatch(logout());
-        dispatch(reset());
+        dispatch(resetAuth());
+        dispatch(resetProducts());
+        dispatch(clearProducts());
+        dispatch(resetShops());
+        dispatch(resetSuppliers());
+        dispatch(resetEMIs());
+        dispatch(resetDashboard());
+        dispatch(resetDiscounts());
+        dispatch(resetInvoices());
         navigate('/');
         setIsLogoutModalOpen(false);
     };
@@ -40,6 +55,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { id: 'invoices', label: 'Invoices', icon: FileText, path: '/shop/invoices' },
         { id: 'suppliers', label: 'Suppliers', icon: Truck, path: '/shop/suppliers' },
         { id: 'emi', label: 'EMI / Loans', icon: CreditCard, path: '/shop/emi' },
+        { id: 'discounts', label: 'Discounts', icon: Tag, path: '/shop/discounts' },
         { id: 'billing', label: 'New Bill (POS)', icon: Calculator, path: '/shop/billing' },
     ];
 

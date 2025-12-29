@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Invoice = require('../models/Invoice');
 const EMI = require('../models/EMI');
@@ -196,29 +197,57 @@ const getLowStockAlerts = async (req, res) => {
 // @access  Private (SuperAdmin)
 const getSuperAdminStats = async (req, res) => {
     try {
+        const { shopId } = req.query;
+        let filter = {};
+        if (shopId) {
+            filter.shopId = shopId;
+        }
+
         const totalShops = await Shop.countDocuments();
-        const totalProducts = await Product.countDocuments();
-        const totalSuppliers = await require('../models/Supplier').countDocuments();
+        const totalProducts = await Product.countDocuments(filter);
+        const lowStockProducts = await Product.countDocuments({ ...filter, stockQuantity: { $lte: 5 } });
+        const totalSuppliers = await require('../models/Supplier').countDocuments(filter);
 
         // precise revenue aggregation across all shops
         const revenueAgg = await Invoice.aggregate([
-            { $group: { _id: null, totalRevenue: { $sum: "$grandTotal" }, totalInvoices: { $sum: 1 } } }
+            { $match: (shopId && mongoose.Types.ObjectId.isValid(shopId)) ? { shopId: new mongoose.Types.ObjectId(shopId) } : {} },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$grandTotal" },
+                    totalInvoices: { $sum: 1 },
+                    totalItemsSold: { $sum: { $reduce: { input: "$items", initialValue: 0, in: { $add: ["$$value", "$$this.quantity"] } } } }
+                }
+            }
         ]);
 
         const totalRevenue = revenueAgg.length > 0 ? revenueAgg[0].totalRevenue : 0;
         const totalInvoices = revenueAgg.length > 0 ? revenueAgg[0].totalInvoices : 0;
+        const totalItemsSold = revenueAgg.length > 0 ? revenueAgg[0].totalItemsSold : 0;
 
-        const activeEMIs = await EMI.countDocuments({ emiStatus: 'Active' });
+        const activeEMIs = await EMI.countDocuments({ ...filter, emiStatus: 'Active' });
+
+        // Total Unique Customers (based on mobile number)
+        const customerAgg = await Invoice.aggregate([
+            { $match: (shopId && mongoose.Types.ObjectId.isValid(shopId)) ? { shopId: new mongoose.Types.ObjectId(shopId) } : {} },
+            { $group: { _id: "$customerDetails.mobile" } },
+            { $count: "count" }
+        ]);
+        const totalCustomers = customerAgg.length > 0 ? customerAgg[0].count : 0;
 
         res.json({
             totalShops,
             totalProducts,
+            lowStockProducts,
             totalRevenue,
             totalInvoices,
             totalSuppliers,
-            activeEMIs
+            activeEMIs,
+            totalCustomers,
+            totalItemsSold
         });
     } catch (error) {
+        console.error('SuperAdminStats Error:', error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };

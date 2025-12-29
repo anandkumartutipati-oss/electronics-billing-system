@@ -13,7 +13,7 @@ const productSchema = mongoose.Schema({
     modelNumber: { type: String },
     skuCode: { type: String, required: true }, // Should be unique per shop ideally
     hsnCode: { type: String, required: true },
-    unit: { type: String, required: true }, // piece, meter, box
+    unit: { type: String, required: true }, // piece, meter, box, kg
     purchasePrice: { type: Number, required: true },
     sellingPrice: { type: Number, required: true },
     gstPercent: { type: Number, required: true },
@@ -25,6 +25,8 @@ const productSchema = mongoose.Schema({
         publicId: String,
         imageUrl: String
     }],
+    discountedPrice: { type: Number }, // Manual price drop
+    onSpecialOffer: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true }
 }, {
     timestamps: true

@@ -11,8 +11,22 @@ const getEMIs = async (req, res) => {
         }
 
         const emis = await EMI.find({ shopId: req.user.shopId })
-            .sort({ createdAt: -1 });
-        res.json(emis);
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const enhancedEmis = await Promise.all(emis.map(async (emi) => {
+            const payments = await EmiPayment.find({ emiId: emi._id }).sort({ paymentDate: -1 });
+            const totalPaid = payments.reduce((sum, p) => sum + p.amountPaid, 0);
+            return {
+                ...emi,
+                totalPaid,
+                remainingAmount: emi.totalPayable - totalPaid,
+                installmentsPaid: payments.length,
+                lastPaymentDate: payments.length > 0 ? payments[0].paymentDate : null
+            };
+        }));
+
+        res.json(enhancedEmis);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
     }
@@ -52,9 +66,9 @@ const payEMI = async (req, res) => {
         const payment = await EmiPayment.create({
             emiId: emi._id,
             shopId: req.user.shopId,
-            amount: Number(amount),
-            date: new Date(),
-            mode: 'Cash', // Defaulting for now
+            amountPaid: Number(amount),
+            paymentDate: new Date(),
+            paymentMode: 'Cash', // Defaulting for now
             remarks
         });
 

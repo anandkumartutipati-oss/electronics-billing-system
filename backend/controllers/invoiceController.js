@@ -51,7 +51,13 @@ const createInvoice = async (req, res) => {
             shopId: req.user.shopId,
             invoiceNumber,
             customerDetails,
-            items,
+            items: items.map(item => ({
+                ...item,
+                price: item.price, // Original selling price
+                discountAmount: item.discountAmount || 0,
+                appliedDiscountType: item.appliedDiscountType || null,
+                finalPrice: item.finalPrice || (item.price - (item.discountAmount || 0))
+            })),
             subTotal,
             totalGST,
             discount,

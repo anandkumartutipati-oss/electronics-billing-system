@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 
 const DashboardHeader = ({ searchTerm, setSearchTerm, toggleProfile }) => {
     const { user } = useSelector((state) => state.auth);
+    const { currentShop } = useSelector((state) => state.shops);
     const { theme, toggleTheme } = useTheme();
     const location = useLocation();
 
@@ -69,7 +70,7 @@ const DashboardHeader = ({ searchTerm, setSearchTerm, toggleProfile }) => {
                 <div onClick={toggleProfile} className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700 cursor-pointer">
                     <div className="text-right hidden md:block">
                         <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{user ? user.name : 'User'}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user ? (user.role === 'owner' ? 'Shop Owner' : 'Staff') : 'Guest'}</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">{currentShop?.shopName || (user?.role === 'owner' ? 'Shop Owner' : 'Staff')}</p>
                     </div>
                     <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                         <User size={20} />

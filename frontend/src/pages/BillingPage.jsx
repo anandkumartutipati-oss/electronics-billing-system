@@ -3,10 +3,12 @@ import { useSelector, useDispatch } from 'react-redux'
 import { getProducts } from '../features/products/productSlice'
 import { createInvoice, reset } from '../features/invoices/invoiceSlice'
 import { getShop } from '../features/shops/shopSlice'
+import { getDiscounts } from '../features/discounts/discountSlice'
 import { generateInvoicePDF } from '../utils/pdfGenerator'
-import { Search, Plus, Minus, Trash2, ShoppingCart, Calculator, ArrowLeft, Printer, FileText, CheckCircle } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, Calculator, ArrowLeft, Printer, FileText, CheckCircle, Tag } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
+
 
 function BillingPage({ onNavigate, searchTerm }) {
     const dispatch = useDispatch()
@@ -16,6 +18,7 @@ function BillingPage({ onNavigate, searchTerm }) {
     const { products } = useSelector((state) => state.products)
     const { isSuccess, isError, message, invoices } = useSelector((state) => state.invoices)
     const { currentShop } = useSelector((state) => state.shops)
+    const { discounts } = useSelector((state) => state.discounts)
 
     const [cart, setCart] = useState([])
     const [customer, setCustomer] = useState({ name: '', mobile: '', address: '' })
@@ -37,6 +40,9 @@ function BillingPage({ onNavigate, searchTerm }) {
         tenureValue: 0
     })
 
+    const [categoryFilter, setCategoryFilter] = useState('All')
+    const [showOffersOnly, setShowOffersOnly] = useState(false)
+
     useEffect(() => {
         if (!user) {
             navigate('/login')
@@ -45,6 +51,7 @@ function BillingPage({ onNavigate, searchTerm }) {
 
             if (user.shopId) {
                 dispatch(getShop(user.shopId))
+                dispatch(getDiscounts())
             }
         }
 
@@ -106,11 +113,28 @@ function BillingPage({ onNavigate, searchTerm }) {
         const cartItem = cart.find(item => item.productId === p._id)
         const currentStock = p.stockQuantity - (cartItem ? cartItem.quantity : 0)
         return { ...p, currentStock }
-    }).filter(p =>
-        (p.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.skuCode && p.skuCode.includes(searchTerm))) &&
-        p.isActive && p.currentStock >= 0
-    )
+    }).filter(p => {
+        const matchesSearch = (p.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.skuCode && p.skuCode.includes(searchTerm)));
+        const matchesCategory = (categoryFilter === 'All' || p.category === categoryFilter);
+
+        // Define what constitutes an "Offer"
+        const hasDirectOffer = p.onSpecialOffer || (p.discountedPrice && p.discountedPrice < p.sellingPrice);
+        const activeDiscounts = (Array.isArray(discounts) ? discounts : []).filter(d =>
+            d.isActive &&
+            (d.startDate ? new Date(d.startDate) <= new Date() : true) &&
+            (d.endDate ? new Date(d.endDate) >= new Date() : true)
+        );
+        const hasDiscountRule = activeDiscounts.some(d =>
+            d.scope === 'ShopWide' ||
+            (d.scope === 'CategoryWide' && d.category === p.category) ||
+            (d.scope === 'ProductSpecific' && d.productId === p._id)
+        );
+
+        const matchesOffers = !showOffersOnly || hasDirectOffer || hasDiscountRule;
+
+        return matchesSearch && matchesCategory && matchesOffers && p.isActive && p.currentStock >= 0;
+    })
 
     // Cart Logic
     const addToCart = (product) => {
@@ -118,25 +142,76 @@ function BillingPage({ onNavigate, searchTerm }) {
 
         if (existingItem) {
             if (existingItem.quantity < product.stockQuantity) {
+                const newQty = existingItem.quantity + 1
+                const discountInfo = calculateItemDiscount(product, newQty)
+
                 setCart(cart.map(item =>
                     item.productId === product._id
-                        ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.price }
+                        ? {
+                            ...item,
+                            quantity: newQty,
+                            price: product.sellingPrice,
+                            discountAmount: discountInfo.discountAmount,
+                            appliedDiscountType: discountInfo.type,
+                            finalPrice: discountInfo.finalPrice,
+                            total: newQty * discountInfo.finalPrice
+                        }
                         : item
                 ))
             } else {
                 toast.warning('Stock limit reached for this item!')
             }
         } else {
+            const discountInfo = calculateItemDiscount(product, 1)
             setCart([...cart, {
                 productId: product._id,
                 productName: product.productName,
                 price: product.sellingPrice,
+                discountAmount: discountInfo.discountAmount,
+                appliedDiscountType: discountInfo.type,
+                finalPrice: discountInfo.finalPrice,
                 gstPercent: product.gstPercent,
                 quantity: 1,
-                total: product.sellingPrice,
+                total: discountInfo.finalPrice,
                 unit: product.unit,
                 stockMax: product.stockQuantity
             }])
+        }
+    }
+
+    const calculateItemDiscount = (product, quantity) => {
+        const activeDiscounts = (Array.isArray(discounts) ? discounts : []).filter(d =>
+            d.isActive &&
+            (d.startDate ? new Date(d.startDate) <= new Date() : true) &&
+            (d.endDate ? new Date(d.endDate) >= new Date() : true)
+        )
+
+        const productDiscounts = activeDiscounts.filter(d =>
+            d.scope === 'ShopWide' ||
+            (d.scope === 'CategoryWide' && d.category === product.category) ||
+            (d.scope === 'ProductSpecific' && d.productId === product._id)
+        )
+
+        // Priority: Festival > Bulk > SpecialOffer
+        const festival = productDiscounts.find(d => d.type === 'Festival')
+        const bulk = productDiscounts.find(d => d.type === 'Bulk' && quantity >= d.minQuantity)
+        const special = productDiscounts.find(d => d.type === 'SpecialOffer')
+
+        let applied = festival || bulk || special
+        let discountAmount = 0
+
+        if (applied) {
+            if (applied.discountType === 'Percentage') {
+                discountAmount = (product.sellingPrice * applied.value) / 100
+            } else {
+                discountAmount = applied.value
+            }
+        }
+
+        return {
+            discountAmount,
+            type: applied ? applied.type : null,
+            finalPrice: product.sellingPrice - discountAmount
         }
     }
 
@@ -149,7 +224,16 @@ function BillingPage({ onNavigate, searchTerm }) {
             if (item.productId === productId) {
                 const newQty = item.quantity + delta
                 if (newQty > 0 && newQty <= item.stockMax) {
-                    return { ...item, quantity: newQty, total: newQty * item.price }
+                    const product = products.find(p => p._id === productId)
+                    const discountInfo = calculateItemDiscount(product, newQty)
+                    return {
+                        ...item,
+                        quantity: newQty,
+                        discountAmount: discountInfo.discountAmount,
+                        appliedDiscountType: discountInfo.type,
+                        finalPrice: discountInfo.finalPrice,
+                        total: newQty * discountInfo.finalPrice
+                    }
                 }
             }
             return item
@@ -157,12 +241,14 @@ function BillingPage({ onNavigate, searchTerm }) {
     }
 
     // Calculations
-    const subTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
+    const subTotal = cart.reduce((acc, item) => acc + (item.finalPrice * item.quantity), 0)
 
     const totalGST = cart.reduce((acc, item) => {
-        const gstAmount = (item.price * item.quantity * item.gstPercent) / 100
+        const gstAmount = (item.finalPrice * item.quantity * item.gstPercent) / 100
         return acc + gstAmount
     }, 0)
+
+    const totalDiscount = cart.reduce((acc, item) => acc + (item.discountAmount * item.quantity), 0)
 
     const grandTotal = subTotal + totalGST
 
@@ -218,7 +304,7 @@ function BillingPage({ onNavigate, searchTerm }) {
             items: cart,
             subTotal,
             totalGST,
-            discount: 0,
+            discount: totalDiscount,
             grandTotal,
             paymentType: paymentMode,
             paymentBreakdown: paymentMode === 'Mixed' ? splitPayments : {
@@ -240,10 +326,43 @@ function BillingPage({ onNavigate, searchTerm }) {
         <div className="flex h-[calc(100vh-100px)] bg-white/80 dark:bg-gray-900/90 backdrop-blur-md overflow-hidden rounded-2xl border border-white/20 shadow-xl relative transition-colors duration-300">
             {/* LEFT: Product Selection */}
             <div className="w-3/5 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-4">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center gap-4">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         <ShoppingCart className="text-blue-600 dark:text-blue-400" /> Products
                     </h2>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowOffersOnly(!showOffersOnly)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border ${showOffersOnly ? 'bg-orange-500 text-white border-orange-400 shadow-lg shadow-orange-500/20' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-100 dark:border-gray-700 hover:bg-gray-50'}`}
+                        >
+                            <Tag size={12} className={showOffersOnly ? 'text-white' : 'text-orange-500'} />
+                            OFFERS
+                        </button>
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="text-xs bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-600 dark:text-gray-300 transition-all cursor-pointer"
+                        >
+                            <option value="All">All Categories</option>
+                            {['electronics', 'electrical'].map(type => {
+                                const typeCategories = [...new Set(products
+                                    .filter(p => p.itemType === type)
+                                    .map(p => p.category)
+                                    .filter(Boolean)
+                                )].sort();
+
+                                if (typeCategories.length === 0) return null;
+
+                                return (
+                                    <optgroup key={type} label={type.toUpperCase()} className="bg-gray-100 dark:bg-gray-800">
+                                        {typeCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </optgroup>
+                                );
+                            })}
+                        </select>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -265,13 +384,25 @@ function BillingPage({ onNavigate, searchTerm }) {
                                         ) : (
                                             <div className="text-4xl font-bold opacity-30">{product.productName.charAt(0)}</div>
                                         )}
+
+                                        {/* Discount Badge */}
+                                        {calculateItemDiscount(product, 1).type && (
+                                            <div className="absolute top-2 right-2 bg-orange-600 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
+                                                <Tag size={10} /> {calculateItemDiscount(product, 1).type === 'Festival' ? 'Festive' : calculateItemDiscount(product, 5).type === 'Bulk' ? 'Bulk' : 'Offer'}
+                                            </div>
+                                        )}
                                     </div>
                                     <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 leading-tight text-sm h-10">{product.productName}</h3>
                                     <div className="flex justify-between items-center w-full mt-2">
                                         <p className={`text-xs font-bold ${product.currentStock < 5 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
                                             {product.currentStock} <span className="opacity-70 font-normal">{product.unit}s left</span>
                                         </p>
-                                        <div className="font-bold text-blue-600 dark:text-blue-400">&#8377;{product.sellingPrice}</div>
+                                        <div className="text-right">
+                                            {calculateItemDiscount(product, 1).discountAmount > 0 && (
+                                                <div className="text-[10px] line-through text-gray-400">&#8377;{product.sellingPrice}</div>
+                                            )}
+                                            <div className="font-bold text-blue-600 dark:text-blue-400">&#8377;{calculateItemDiscount(product, 1).finalPrice}</div>
+                                        </div>
                                     </div>
                                 </button>
                             ))
@@ -322,9 +453,24 @@ function BillingPage({ onNavigate, searchTerm }) {
                         cart.map((item) => (
                             <div key={item.productId} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-blue-200 dark:hover:border-blue-800 transition-all">
                                 <div className="flex-1">
-                                    <h4 className="font-medium text-gray-900 dark:text-white">{item.productName}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-medium text-gray-900 dark:text-white">{item.productName}</h4>
+                                        {item.appliedDiscountType && (
+                                            <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+                                                {item.appliedDiscountType}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        &#8377;{item.price} x {item.quantity} | GST: {item.gstPercent}%
+                                        {item.discountAmount > 0 ? (
+                                            <>
+                                                <span className="line-through opacity-50 mr-2">&#8377;{item.price}</span>
+                                                <span className="text-blue-600 dark:text-blue-400 font-bold">&#8377;{item.finalPrice}</span>
+                                            </>
+                                        ) : (
+                                            <span>&#8377;{item.price}</span>
+                                        )}
+                                        <span> x {item.quantity} | GST: {item.gstPercent}%</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -333,8 +479,11 @@ function BillingPage({ onNavigate, searchTerm }) {
                                         <span className="w-8 text-center text-sm font-bold text-gray-800 dark:text-white">{item.quantity}</span>
                                         <button onClick={() => updateQuantity(item.productId, 1)} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-r-lg text-gray-600 dark:text-gray-300 transition-colors"><Plus size={14} /></button>
                                     </div>
-                                    <div className="w-20 text-right font-bold text-gray-900 dark:text-white">
-                                        &#8377;{item.total}
+                                    <div className="w-24 text-right">
+                                        <div className="font-bold text-gray-900 dark:text-white">&#8377;{item.total.toFixed(2)}</div>
+                                        {item.discountAmount > 0 && (
+                                            <div className="text-[10px] text-green-600 font-bold">Saved &#8377;{(item.discountAmount * item.quantity).toFixed(2)}</div>
+                                        )}
                                     </div>
                                     <button onClick={() => removeFromCart(item.productId)} className="text-gray-400 hover:text-red-500 p-1.5 transition-colors opacity-0 group-hover:opacity-100">
                                         <Trash2 size={18} />
@@ -475,6 +624,12 @@ function BillingPage({ onNavigate, searchTerm }) {
                             <span>GST Total</span>
                             <span>&#8377;{totalGST.toFixed(2)}</span>
                         </div>
+                        {totalDiscount > 0 && (
+                            <div className="flex justify-between text-green-600 font-bold italic">
+                                <span>You Saved</span>
+                                <span>- &#8377;{totalDiscount.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-2xl font-black text-gray-900 dark:text-white pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 mt-2">
                             <span>Total</span>
                             <span>&#8377;{grandTotal.toFixed(2)}</span>

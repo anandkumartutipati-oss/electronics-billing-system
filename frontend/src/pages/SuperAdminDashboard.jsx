@@ -6,15 +6,12 @@ import { getProducts } from '../features/products/productSlice'
 import { getSuperAdminStats } from '../features/dashboard/dashboardSlice'
 import { reset as resetAuth, updateProfile } from '../features/auth/authSlice'
 import { toast } from 'react-toastify'
-import { Plus, Upload, Building2, User, Phone, MapPin, Search, Package, Eye, DollarSign, AlertCircle, TrendingUp, Download, DownloadCloud } from 'lucide-react'
+import { Plus, Upload, Building2, User, Phone, MapPin, Search, Package, Eye, DollarSign, AlertCircle, TrendingUp, Download, DownloadCloud, Tag, FileText, ShoppingCart, CreditCard } from 'lucide-react'
 import ProductDetails from '../components/ProductDetails'
 import ConfirmationModal from '../components/ConfirmationModal'
 import Sidebar from '../components/Sidebar'
 import DashboardHeader from '../components/DashboardHeader'
 import StatsCard from '../components/StatsCard'
-
-
-
 
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -71,6 +68,8 @@ function SuperAdminDashboard() {
 
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedShopFilter, setSelectedShopFilter] = useState('')
+    const [selectedShopStats, setSelectedShopStats] = useState('')
+    const [showOffersOnly, setShowOffersOnly] = useState(false)
     const [selectedProduct, setSelectedProduct] = useState(null)
 
     useEffect(() => {
@@ -86,6 +85,7 @@ function SuperAdminDashboard() {
 
         if (user) {
             dispatch(getShops())
+            dispatch(getSuperAdminStats(selectedShopStats))
             dispatch(getSuperAdminStats())
         }
         if (authError) {
@@ -106,7 +106,10 @@ function SuperAdminDashboard() {
         if (activeTab === 'products') {
             dispatch(getProducts(selectedShopFilter))
         }
-    }, [activeTab, selectedShopFilter, dispatch])
+        if (activeTab === 'overview') {
+            dispatch(getSuperAdminStats(selectedShopStats))
+        }
+    }, [activeTab, selectedShopFilter, selectedShopStats, dispatch])
 
 
     // Form State
@@ -241,11 +244,18 @@ function SuperAdminDashboard() {
         (shop.location && shop.location.toLowerCase().includes(searchTerm.toLowerCase()))
     )
 
-    const filteredProducts = products.filter((product) =>
-        (product.productName && product.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (product.skuCode && product.skuCode.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
+    const filteredProducts = products.filter((product) => {
+        const matchesSearch = (product.productName && product.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (product.skuCode && product.skuCode.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        // Offers Logic (Direct & Rules)
+        const hasDirectOffer = product.onSpecialOffer === true || product.onSpecialOffer === 'true' || product.onSpecialOffer === 1 ||
+            (product.discountedPrice && Number(product.discountedPrice) < Number(product.sellingPrice));
+
+        const matchesOffers = !showOffersOnly || hasDirectOffer;
+        return matchesSearch && matchesOffers;
+    })
 
     const filteredUsers = shops.map(shop => ({
         name: shop.ownerId?.name || 'Unknown',
@@ -311,52 +321,107 @@ function SuperAdminDashboard() {
 
                     {/* OVERVIEW TAB */}
                     {activeTab === 'overview' && adminStats && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            {/* Dashboard Header / Filter */}
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/50 dark:bg-gray-800/50 p-6 rounded-2xl border border-white/20 backdrop-blur-md shadow-sm">
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Executive Overview</h2>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Real-time performance metrics across the platform.</p>
+                                </div>
+                                <div className="flex items-center gap-3 bg-white dark:bg-gray-900 p-1.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-inner">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-3">Filter Shop</span>
+                                    <select
+                                        value={selectedShopStats}
+                                        onChange={(e) => setSelectedShopStats(e.target.value)}
+                                        className="bg-transparent border-none text-sm font-bold text-blue-600 dark:text-blue-400 focus:ring-0 cursor-pointer pr-8"
+                                    >
+                                        <option value="">All Shops Combined</option>
+                                        {shops.map((shop) => (
+                                            <option key={shop._id} value={shop._id}>{shop.shopName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Financial Stack */}
+                            <div>
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4 ml-1">Financial Performance</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <StatsCard
+                                        title="Total Revenue"
+                                        value={`₹${adminStats.totalRevenue?.toLocaleString() || 0}`}
+                                        icon={DollarSign}
+                                        color="green"
+                                    />
+                                    <StatsCard
+                                        title="Invoices Generated"
+                                        value={adminStats.totalInvoices}
+                                        icon={FileText}
+                                        color="blue"
+                                    />
+                                    <StatsCard
+                                        title="Avg. Ticket Size"
+                                        value={`₹${adminStats.totalInvoices > 0 ? (adminStats.totalRevenue / adminStats.totalInvoices).toFixed(0) : 0}`}
+                                        icon={TrendingUp}
+                                        color="purple"
+                                    />
+                                    <StatsCard
+                                        title="Active EMIs"
+                                        value={adminStats.activeEMIs}
+                                        icon={CreditCard}
+                                        color="orange"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Operational Stack */}
+                            <div>
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4 ml-1">Operational Metrics</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {!selectedShopStats && (
+                                        <StatsCard
+                                            title="Active Shops"
+                                            value={adminStats.totalShops}
+                                            icon={Building2}
+                                            color="indigo"
+                                        />
+                                    )}
+                                    <StatsCard
+                                        title="Total Products"
+                                        value={adminStats.totalProducts}
+                                        icon={Package}
+                                        color="emerald"
+                                    />
+                                    <StatsCard
+                                        title="Items Sold"
+                                        value={adminStats.totalItemsSold}
+                                        icon={ShoppingCart}
+                                        color="cyan"
+                                    />
+                                    <StatsCard
+                                        title="Unique Customers"
+                                        value={adminStats.totalCustomers}
+                                        icon={User}
+                                        color="rose"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Alert Stack */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <StatsCard
-                                    title="Total Revenue"
-                                    value={`₹${adminStats.totalRevenue?.toLocaleString() || 0}`}
-                                    icon={DollarSign}
-                                    color="green"
-                                />
-                                <StatsCard
-                                    title="Active Shops"
-                                    value={adminStats.totalShops}
-                                    icon={Building2}
-                                    color="blue"
-                                />
-                                <StatsCard
-                                    title="Total Products"
-                                    value={adminStats.totalProducts}
-                                    icon={Package}
-                                    color="indigo"
+                                    title="Low Stock Warning"
+                                    value={adminStats.lowStockProducts || 0}
+                                    icon={AlertCircle}
+                                    color="red"
+                                    subtitle="Products with < 5 units"
                                 />
                                 <StatsCard
                                     title="Total Suppliers"
                                     value={adminStats.totalSuppliers}
-                                    icon={User}
-                                    color="orange"
+                                    icon={Tag}
+                                    color="amber"
                                 />
-                            </div>
-
-                            {/* Additional Global Stats Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-bold text-gray-700 dark:text-gray-300">Platform Health</h3>
-                                        <TrendingUp className="text-green-500" />
-                                    </div>
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
-                                            <span className="text-gray-600 dark:text-gray-400">Total Invoices Generated</span>
-                                            <span className="font-bold text-gray-900 dark:text-white">{adminStats.totalInvoices}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
-                                            <span className="text-gray-600 dark:text-gray-400">Active EMI Accounts</span>
-                                            <span className="font-bold text-gray-900 dark:text-white">{adminStats.activeEMIs}</span>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     )}
@@ -644,6 +709,13 @@ function SuperAdminDashboard() {
                                         ))}
                                     </select>
                                     <button
+                                        onClick={() => setShowOffersOnly(!showOffersOnly)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border ${showOffersOnly ? 'bg-orange-500 text-white border-orange-400' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50'}`}
+                                    >
+                                        <Tag size={16} className={showOffersOnly ? 'text-white' : 'text-orange-500'} />
+                                        Offers
+                                    </button>
+                                    <button
                                         onClick={() => setActiveTab('add-bulk-products')}
                                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors whitespace-nowrap"
                                     >
@@ -685,7 +757,19 @@ function SuperAdminDashboard() {
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 capitalize">{product.category}</td>
                                                     <td className="px-6 py-4 text-sm text-blue-600 dark:text-blue-400 font-medium">{product.shopId?.shopName || 'Unknown'}</td>
-                                                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-bold">₹{product.sellingPrice}</td>
+                                                    <td className="px-6 py-4 text-sm">
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-900 dark:text-white font-bold">₹{product.onSpecialOffer && product.discountedPrice ? product.discountedPrice : product.sellingPrice}</span>
+                                                                {product.onSpecialOffer && (
+                                                                    <span className="text-[10px] bg-red-100 text-red-600 dark:bg-red-900/40 px-1 rounded font-black uppercase">OFFER</span>
+                                                                )}
+                                                            </div>
+                                                            {product.onSpecialOffer && product.discountedPrice && (
+                                                                <span className="text-[10px] line-through text-gray-400">₹{product.sellingPrice}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td className="px-6 py-4">
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.stockQuantity > 5 ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'}`}>
                                                             {product.stockQuantity}

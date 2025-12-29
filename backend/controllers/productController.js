@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const fs = require('fs');
 const csv = require('csv-parser');
+const Shop = require('../models/Shop');
 
 
 // @desc    Create a product
@@ -30,14 +31,9 @@ const createProduct = async (req, res) => {
 
         let finalImages = images ? (typeof images === 'string' ? JSON.parse(images) : images) : [];
 
-        // Handle uploaded file
-        if (req.file) {
-            finalImages.push({ imageUrl: `/uploads/${req.file.filename}` });
-        }
-
-        // Handle raw image URL
+        // Handle raw image URL or Base64
         if (imageUrl) {
-            finalImages.push({ imageUrl: imageUrl });
+            finalImages.unshift({ imageUrl: imageUrl });
         }
 
         // Ensure user belongs to a shop
@@ -66,6 +62,17 @@ const createProduct = async (req, res) => {
         });
 
         const createdProduct = await product.save();
+
+        // Update Shop's custom categories if this is a new category
+        const shop = await Shop.findById(req.user.shopId);
+        if (shop) {
+            const catType = itemType === 'electrical' ? 'electrical' : 'electronics';
+            if (!shop.customCategories[catType].includes(category)) {
+                shop.customCategories[catType].push(category);
+                await shop.save();
+            }
+        }
+
         res.status(201).json(createdProduct);
     } catch (error) {
         res.status(400).json({ message: 'Invalid product data', error: error.message });
@@ -121,23 +128,62 @@ const updateProduct = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized to update this product' });
         }
 
+        const {
+            itemType,
+            category,
+            brand,
+            productName,
+            modelNumber,
+            skuCode,
+            hsnCode,
+            unit,
+            purchasePrice,
+            sellingPrice,
+            gstPercent,
+            stockQuantity,
+            warrantyMonths,
+            guaranteeMonths,
+            supplierId,
+            imageUrl,
+            images
+        } = req.body;
+
         let updatedImages = images ? (typeof images === 'string' ? JSON.parse(images) : images) : product.images;
 
-        if (req.file) {
-            updatedImages.push({ imageUrl: `/uploads/${req.file.filename}` });
-        }
-
         if (imageUrl) {
-            updatedImages.push({ imageUrl: imageUrl });
+            updatedImages.unshift({ imageUrl: imageUrl });
         }
 
+        product.itemType = itemType || product.itemType;
+        product.category = category || product.category;
+        product.brand = brand || product.brand;
         product.productName = productName || product.productName;
-        product.sellingPrice = sellingPrice || product.sellingPrice;
-        product.stockQuantity = stockQuantity || product.stockQuantity;
+        product.modelNumber = modelNumber || product.modelNumber;
+        product.skuCode = skuCode || product.skuCode;
+        product.hsnCode = hsnCode || product.hsnCode;
+        product.unit = unit || product.unit;
+        product.purchasePrice = purchasePrice !== undefined ? purchasePrice : product.purchasePrice;
+        product.sellingPrice = sellingPrice !== undefined ? sellingPrice : product.sellingPrice;
+        product.gstPercent = gstPercent !== undefined ? gstPercent : product.gstPercent;
+        product.stockQuantity = stockQuantity !== undefined ? stockQuantity : product.stockQuantity;
+        product.warrantyMonths = warrantyMonths !== undefined ? warrantyMonths : product.warrantyMonths;
+        product.guaranteeMonths = guaranteeMonths !== undefined ? guaranteeMonths : product.guaranteeMonths;
+        product.supplierId = supplierId || product.supplierId;
         product.images = updatedImages;
-        // Update other fields...
 
         const updatedProduct = await product.save();
+
+        // Update Shop's custom categories if this is a new category (for updates)
+        const shop = await Shop.findById(req.user.shopId);
+        if (shop) {
+            const catType = (itemType || product.itemType) === 'electrical' ? 'electrical' : 'electronics';
+            const finalCat = category || product.category;
+            if (!shop.customCategories[catType].includes(finalCat)) {
+                shop.customCategories[catType].push(finalCat);
+                await shop.save();
+            }
+        }
+
         res.json(updatedProduct);
     } else {
         res.status(404).json({ message: 'Product not found' });
@@ -237,8 +283,21 @@ const importProducts = async (req, res) => {
                             guaranteeMonths: Number(row.guaranteeMonths) || 0,
                             supplierId,
                             images: imageArray,
+                            onSpecialOffer: row.onSpecialOffer === 'true' || row.onSpecialOffer === '1',
+                            discountedPrice: Number(row.discountedPrice) || null,
                             isActive: true
                         });
+
+                        // Update Shop's custom categories
+                        const shop = await Shop.findById(targetShopId);
+                        if (shop) {
+                            const catType = (row.itemType ? row.itemType.toLowerCase() : 'electronics') === 'electrical' ? 'electrical' : 'electronics';
+                            if (!shop.customCategories[catType].includes(row.category)) {
+                                shop.customCategories[catType].push(row.category);
+                                await shop.save();
+                            }
+                        }
+
                         successCount++;
                     } else {
                         // Optional: Update existing stock? For now, skip duplicates

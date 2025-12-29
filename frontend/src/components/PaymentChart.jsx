@@ -23,10 +23,12 @@ const PaymentChart = ({ data }) => {
         )
     }
 
-    const chartData = data.map(item => ({
-        name: item._id,
-        value: item.totalAmount
-    }));
+    const chartData = data
+        .filter(item => item._id !== 'Mixed')
+        .map(item => ({
+            name: item._id,
+            value: item.totalAmount
+        }));
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-[400px] backdrop-blur-sm transition-colors flex flex-col">

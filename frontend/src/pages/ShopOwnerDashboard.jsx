@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { getProducts, createProduct, importProducts, deleteProduct, updateProduct, reset as resetProducts } from '../features/products/productSlice'
 import { getSuppliers, createSupplier, deleteSupplier, reset as resetSuppliers } from '../features/suppliers/supplierSlice'
+import { getShop } from '../features/shops/shopSlice'
 import { getEMIs, payEMI, reset as resetEMIs } from '../features/emi/emiSlice'
 import { getShopStats, getSalesGraph, getLowStockAlerts, getCategorySales, getPaymentStats, reset as resetDashboard } from '../features/dashboard/dashboardSlice'
 import { reset as resetAuth, updateProfile } from '../features/auth/authSlice'
-import { Plus, Upload, Package, Edit, Trash2, Phone, CreditCard, Banknote, Eye, ChevronLeft, ChevronRight, Truck, DollarSign, Users, AlertCircle, Calculator, TrendingUp, IndianRupee, Calendar, Download } from 'lucide-react'
+import { getDiscounts, createDiscount, updateDiscount, reset as resetDiscounts } from '../features/discounts/discountSlice'
+import { Plus, Upload, Package, Edit, Trash2, Phone, CreditCard, Banknote, Eye, ChevronLeft, ChevronRight, Truck, DollarSign, Users, AlertCircle, Calculator, TrendingUp, IndianRupee, Calendar, Download, Tag, Percent, Clock, Filter, Layers } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import ProductDetails from '../components/ProductDetails'
 import DashboardHeader from '../components/DashboardHeader'
@@ -19,6 +21,7 @@ import InvoicesList from '../components/InvoicesList'
 import { toast } from 'react-toastify'
 import { useNavigate, useLocation } from 'react-router-dom'
 
+
 function ShopOwnerDashboard() {
     const dispatch = useDispatch()
     const navigate = useNavigate()
@@ -27,8 +30,10 @@ function ShopOwnerDashboard() {
 
     const { products, isSuccess, isError, message } = useSelector((state) => state.products)
     const { suppliers } = useSelector((state) => state.suppliers)
-    const { emis } = useSelector((state) => state.emi)
+    const { emis, isSuccess: emiSuccess, isError: emiError, message: emiMessage } = useSelector((state) => state.emi)
     const { stats, salesGraph, lowStockAlerts, categorySales, paymentStats } = useSelector((state) => state.dashboard)
+    const { discounts, isSuccess: discountSuccess, isError: discountError, message: discountMessage } = useSelector((state) => state.discounts)
+    const { currentShop } = useSelector((state) => state.shops)
 
     // State variables
     const [searchTerm, setSearchTerm] = useState('')
@@ -39,6 +44,9 @@ function ShopOwnerDashboard() {
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [isEditing, setIsEditing] = useState(false)
     const [editId, setEditId] = useState(null)
+    const [categoryFilter, setCategoryFilter] = useState('All')
+    const [isManualCategory, setIsManualCategory] = useState(false)
+    const [showOffersOnly, setShowOffersOnly] = useState(false)
 
     // EMI states
     const [showPayModal, setShowPayModal] = useState(false)
@@ -51,11 +59,30 @@ function ShopOwnerDashboard() {
         password: ''
     })
 
+    // Delete Confirmation State
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [deleteItem, setDeleteItem] = useState({ id: null, type: '', name: '' })
+
     // Date Range State for Analytics
     const [dateRange, setDateRange] = useState({
         startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0]
     })
+
+    // Discount Form State
+    const [discountFormData, setDiscountFormData] = useState({
+        name: '',
+        type: 'Festival',
+        scope: 'ShopWide',
+        category: '',
+        productId: '',
+        discountType: 'Percentage',
+        value: '',
+        minQuantity: 1,
+        startDate: '',
+        endDate: ''
+    })
+    const [showDiscountForm, setShowDiscountForm] = useState(false)
 
     // Sync activeTab with URL
     useEffect(() => {
@@ -70,6 +97,7 @@ function ShopOwnerDashboard() {
         else if (path.includes('/emi')) setActiveTabState('emi');
         else if (path.includes('/billing')) setActiveTabState('billing');
         else if (path.includes('/analytics')) setActiveTabState('analytics');
+        else if (path.includes('/discounts')) setActiveTabState('discounts');
         else if (path.includes('/overview') || path.endsWith('/shop') || path.endsWith('/shop/')) {
             setActiveTabState('overview');
             if (path.endsWith('/shop') || path.endsWith('/shop/')) {
@@ -88,6 +116,7 @@ function ShopOwnerDashboard() {
         else if (tab === 'emi') navigate('/shop/emi');
         else if (tab === 'billing') navigate('/shop/billing');
         else if (tab === 'analytics') navigate('/shop/analytics');
+        else if (tab === 'discounts') navigate('/shop/discounts');
         else if (tab === 'overview') navigate('/shop/overview');
     };
 
@@ -113,7 +142,6 @@ function ShopOwnerDashboard() {
         imageUrl: '', // For manual URL entry
         images: [] // To hold existing images or newly uploaded ones
     })
-    const [selectedFile, setSelectedFile] = useState(null)
     const [imagePreview, setImagePreview] = useState(null)
 
     // Supplier Form Data
@@ -148,7 +176,25 @@ function ShopOwnerDashboard() {
             toast.success('Profile updated successfully')
             dispatch(resetAuth())
         }
-    }, [isSuccess, isError, message, authSuccess, authError, authMessage, dispatch])
+
+        if (discountError) {
+            toast.error(discountMessage)
+            dispatch(resetDiscounts())
+        }
+        if (discountSuccess && discountMessage) {
+            toast.success(discountMessage)
+            dispatch(resetDiscounts())
+        }
+
+        if (emiError) {
+            toast.error(emiMessage)
+            dispatch(resetEMIs())
+        }
+        if (emiSuccess && emiMessage) {
+            toast.success(emiMessage)
+            dispatch(resetEMIs())
+        }
+    }, [isSuccess, isError, message, authSuccess, authError, authMessage, discountSuccess, discountError, discountMessage, emiSuccess, emiError, emiMessage, dispatch])
 
 
     useEffect(() => {
@@ -170,14 +216,39 @@ function ShopOwnerDashboard() {
                 dispatch(getSuppliers())
             } else if (activeTab === 'emi') {
                 dispatch(getEMIs())
+            } else if (activeTab === 'discounts') {
+                dispatch(getDiscounts())
+                dispatch(getProducts(user.shopId)) // To select products for product-specific discounts
+            }
+
+            if (user.shopId) {
+                dispatch(getShop(user.shopId))
             }
         }
     }, [dispatch, user, activeTab, dateRange])
 
-    const filteredProducts = products.filter((product) =>
-        product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.skuCode && product.skuCode.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
+    const filteredProducts = products.filter((product) => {
+        const matchesSearch = product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (product.skuCode && product.skuCode.toLowerCase().includes(searchTerm.toLowerCase()))
+        const matchesCategory = categoryFilter === 'All' || product.category === categoryFilter
+
+        // Define what constitutes an "Offer"
+        const hasDirectOffer = product.onSpecialOffer || (product.discountedPrice && product.discountedPrice < product.sellingPrice);
+        const activeDiscounts = (Array.isArray(discounts) ? discounts : []).filter(d =>
+            d.isActive &&
+            (d.startDate ? new Date(d.startDate) <= new Date() : true) &&
+            (d.endDate ? new Date(d.endDate) >= new Date() : true)
+        );
+        const hasDiscountRule = activeDiscounts.some(d =>
+            d.scope === 'ShopWide' ||
+            (d.scope === 'CategoryWide' && d.category === product.category) ||
+            (d.scope === 'ProductSpecific' && d.productId === product._id)
+        );
+
+        const matchesOffers = !showOffersOnly || hasDirectOffer || hasDiscountRule;
+        return matchesSearch && matchesCategory && matchesOffers
+    })
+
 
     const indexOfLastItem = currentPage * itemsPerPage
     const indexOfFirstItem = indexOfLastItem - itemsPerPage
@@ -212,26 +283,20 @@ function ShopOwnerDashboard() {
     const handleFileChange = (e) => {
         const file = e.target.files[0]
         if (file) {
-            setSelectedFile(file)
-            setImagePreview(URL.createObjectURL(file))
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result;
+                setFormData(prev => ({ ...prev, imageUrl: base64String }));
+                setImagePreview(base64String);
+            };
+            reader.readAsDataURL(file);
         }
     }
 
     const handleSingleSubmit = (e) => {
         e.preventDefault()
 
-        const productData = new FormData()
-        Object.keys(formData).forEach(key => {
-            if (key === 'images') {
-                productData.append(key, JSON.stringify(formData[key]))
-            } else {
-                productData.append(key, formData[key])
-            }
-        })
-
-        if (selectedFile) {
-            productData.append('image', selectedFile)
-        }
+        const productData = { ...formData };
 
         if (isEditing) {
             dispatch(updateProduct({ id: editId, productData }))
@@ -246,6 +311,7 @@ function ShopOwnerDashboard() {
             brand: '',
             itemType: 'electronics',
             category: '',
+            modelNumber: '',
             skuCode: '',
             hsnCode: '',
             purchasePrice: '',
@@ -259,7 +325,6 @@ function ShopOwnerDashboard() {
             imageUrl: '',
             images: []
         })
-        setSelectedFile(null)
         setImagePreview(null)
         setActiveTab('list')
     }
@@ -288,33 +353,54 @@ function ShopOwnerDashboard() {
     }
 
     const handleDeleteSupplier = (id) => {
-        if (window.confirm('Are you sure you want to delete this supplier?')) {
-            dispatch(deleteSupplier(id))
+        const supplier = suppliers.find(s => s._id === id);
+        setDeleteItem({ id, type: 'supplier', name: supplier?.supplierName || 'this supplier' });
+        setShowDeleteModal(true);
+    }
+
+    const confirmDelete = () => {
+        if (deleteItem.type === 'product') {
+            dispatch(deleteProduct(deleteItem.id));
+        } else if (deleteItem.type === 'supplier') {
+            dispatch(deleteSupplier(deleteItem.id));
         }
+        setShowDeleteModal(false);
+        setDeleteItem({ id: null, type: '', name: '' });
     }
 
     const handleDeleteProduct = (id) => {
-        if (window.confirm('Are you sure you want to delete this product?')) {
-            dispatch(deleteProduct(id))
-        }
+        const product = products.find(p => p._id === id);
+        setDeleteItem({ id, type: 'product', name: product?.productName || 'this product' });
+        setShowDeleteModal(true);
     }
 
     const handleEditProduct = (product) => {
+        const currentCategories = [
+            ...new Set([
+                ...products.filter(p => p.itemType === product.itemType).map(p => p.category),
+                ...(currentShop?.customCategories?.[product.itemType] || [])
+            ].filter(Boolean))
+        ];
+        const isManual = !currentCategories.includes(product.category);
+        setIsManualCategory(isManual);
         setFormData({
-            productName: product.productName,
-            brand: product.brand,
-            itemType: product.itemType,
-            category: product.category,
+            productName: product.productName || '',
+            brand: product.brand || '',
+            itemType: product.itemType || 'electronics',
+            category: product.category || '',
+            modelNumber: product.modelNumber || '',
             skuCode: product.skuCode || '',
             hsnCode: product.hsnCode || '',
-            purchasePrice: product.purchasePrice,
-            sellingPrice: product.sellingPrice,
-            gstPercent: product.gstPercent,
-            stockQuantity: product.stockQuantity,
-            unit: product.unit,
+            purchasePrice: product.purchasePrice || '',
+            sellingPrice: product.sellingPrice || '',
+            gstPercent: product.gstPercent || 18,
+            stockQuantity: product.stockQuantity || '',
+            unit: product.unit || 'piece',
             warrantyMonths: product.warrantyMonths || '',
             guaranteeMonths: product.guaranteeMonths || '',
             supplierId: product.supplierId?._id || product.supplierId || '',
+            onSpecialOffer: product.onSpecialOffer || false,
+            discountedPrice: product.discountedPrice || '',
             imageUrl: '',
             images: product.images || []
         })
@@ -348,6 +434,32 @@ function ShopOwnerDashboard() {
 
     const handleProfileChange = (e) => {
         setProfileData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    }
+
+    const handleDiscountInputChange = (e) => {
+        setDiscountFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    }
+
+    const handleDiscountSubmit = (e) => {
+        e.preventDefault()
+        dispatch(createDiscount(discountFormData))
+        setDiscountFormData({
+            name: '',
+            type: 'Festival',
+            scope: 'ShopWide',
+            category: '',
+            productId: '',
+            discountType: 'Percentage',
+            value: '',
+            minQuantity: 1,
+            startDate: '',
+            endDate: ''
+        })
+        setShowDiscountForm(false)
+    }
+
+    const handleToggleDiscount = (id, isActive) => {
+        dispatch(updateDiscount({ id, discountData: { isActive: !isActive } }))
     }
 
     return (
@@ -499,12 +611,65 @@ function ShopOwnerDashboard() {
                     {activeTab === 'list' && (
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full backdrop-blur-sm">
                             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
-                                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                                    <Package className="text-blue-600 dark:text-blue-400" /> Products Inventory
-                                </h2>
+                                <div className="flex flex-col md:flex-row items-center gap-4">
+                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                                        <Package className="text-blue-600 dark:text-blue-400" /> Products Inventory
+                                    </h2>
+                                    <div className="relative group">
+                                        <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <select
+                                            value={categoryFilter}
+                                            onChange={(e) => {
+                                                setCategoryFilter(e.target.value)
+                                                setCurrentPage(1)
+                                            }}
+                                            className="pl-9 pr-8 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer hover:bg-white dark:hover:bg-gray-700"
+                                        >
+                                            <option value="All">All Categories</option>
+                                            {['electronics', 'electrical'].map(type => {
+                                                const typeCategories = [...new Set(products
+                                                    .filter(p => p.itemType === type)
+                                                    .map(p => p.category)
+                                                    .filter(Boolean)
+                                                )].sort();
+
+                                                if (typeCategories.length === 0) return null;
+
+                                                return (
+                                                    <optgroup key={type} label={type.toUpperCase()} className="bg-gray-100 dark:bg-gray-800">
+                                                        {typeCategories.map(cat => (
+                                                            <option key={cat} value={cat}>{cat}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                );
+                                            })}
+                                        </select>
+                                        <ChevronRight size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 rotate-90 pointer-events-none" />
+                                    </div>
+                                </div>
                                 <div className="flex gap-3">
                                     <button
-                                        onClick={() => setActiveTab('add-single')}
+                                        onClick={() => setShowOffersOnly(!showOffersOnly)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${showOffersOnly ? 'bg-orange-500 text-white shadow-orange-500/30' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:bg-gray-50'}`}
+                                    >
+                                        <Tag size={14} className={showOffersOnly ? 'text-white' : 'text-orange-500'} />
+                                        Offers Available
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setIsEditing(false)
+                                            setFormData({
+                                                productName: '', brand: '', itemType: 'electronics', category: '',
+                                                skuCode: '', hsnCode: '', purchasePrice: '', sellingPrice: '',
+                                                gstPercent: 18, stockQuantity: '', unit: 'piece', warrantyMonths: '',
+                                                guaranteeMonths: '', supplierId: '', imageUrl: '', images: [],
+                                                onSpecialOffer: false, discountedPrice: ''
+                                            })
+                                            setImagePreview(null)
+                                            setIsManualCategory(false)
+                                            setActiveTab('add-single')
+                                        }}
                                         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
                                     >
                                         <Plus size={18} /> Add Product
@@ -549,8 +714,53 @@ function ShopOwnerDashboard() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">&#8377;{product.sellingPrice}</div>
-                                                        <div className="text-xs text-green-600 dark:text-green-400 font-medium">+ GST {product.gstPercent}%</div>
+                                                        {(() => {
+                                                            const activeDiscounts = (Array.isArray(discounts) ? discounts : []).filter(d =>
+                                                                d.isActive &&
+                                                                (d.startDate ? new Date(d.startDate) <= new Date() : true) &&
+                                                                (d.endDate ? new Date(d.endDate) >= new Date() : true)
+                                                            )
+                                                            const productDiscounts = activeDiscounts.filter(d =>
+                                                                d.scope === 'ShopWide' ||
+                                                                (d.scope === 'CategoryWide' && d.category === product.category) ||
+                                                                (d.scope === 'ProductSpecific' && d.productId === product._id)
+                                                            )
+                                                            const best = productDiscounts.find(d => d.type === 'Festival') || productDiscounts.find(d => d.type === 'Bulk') || productDiscounts.find(d => d.type === 'SpecialOffer')
+
+                                                            let discountAmount = 0
+                                                            if (best) {
+                                                                discountAmount = best.discountType === 'Percentage' ? (product.sellingPrice * best.value) / 100 : best.value
+                                                            }
+
+                                                            const rulePrice = product.sellingPrice - discountAmount
+                                                            const productOfferPrice = (product.onSpecialOffer && product.discountedPrice) ? product.discountedPrice : null
+
+                                                            const finalPrice = productOfferPrice ? Math.min(rulePrice, productOfferPrice) : rulePrice
+                                                            const hasOffer = productOfferPrice !== null || discountAmount > 0
+
+                                                            return (
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">&#8377;{finalPrice}</div>
+                                                                        {product.onSpecialOffer && (
+                                                                            <span className="text-[10px] bg-red-100 text-red-600 dark:bg-red-900/40 px-1 rounded font-black uppercase">
+                                                                                OFFER
+                                                                            </span>
+                                                                        )}
+                                                                        {best && !product.onSpecialOffer && (
+                                                                            <span className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/40 px-1 rounded font-black uppercase">
+                                                                                {best.type}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    {hasOffer ? (
+                                                                        <div className="text-[10px] line-through text-gray-400">&#8377;{product.sellingPrice}</div>
+                                                                    ) : (
+                                                                        <div className="text-xs text-green-600 dark:text-green-400 font-medium">+ GST {product.gstPercent}%</div>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })()}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${product.stockQuantity > 5 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'}`}>
@@ -662,6 +872,7 @@ function ShopOwnerDashboard() {
 
                     {/* EMI TAB */}
                     {activeTab === 'emi' && (
+                        /* EMI Table code... (keeping it as is) */
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50 dark:bg-gray-900/50">
                                 <div>
@@ -676,7 +887,8 @@ function ShopOwnerDashboard() {
                                         <tr>
                                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer Details</th>
                                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Loan Info</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Status</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Installments</th>
                                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Next Due</th>
                                             <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Action</th>
                                         </tr>
@@ -690,16 +902,38 @@ function ShopOwnerDashboard() {
                                                         <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-1"><Phone size={12} className="mr-1" /> {emi.customerMobile}</div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="text-sm text-gray-900 dark:text-white font-bold">₹{emi.totalPayable.toFixed(0)}</div>
-                                                        <div className="text-xs text-purple-600 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded inline-block mt-1">EMI: ₹{emi.emiAmount}/mo</div>
+                                                        <div className="text-sm text-gray-900 dark:text-white font-bold">₹{emi.totalPayable?.toFixed(0)}</div>
+                                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase font-bold tracking-wider">Payable</div>
+                                                        <div className="text-xs text-purple-600 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded inline-block mt-2">₹{emi.emiAmount}/mo</div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${emi.emiStatus === 'Active' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'}`}>
-                                                            {emi.emiStatus}
-                                                        </span>
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex justify-between text-[10px] font-bold">
+                                                                <span className="text-green-600 dark:text-green-400">PAID: ₹{emi.totalPaid || 0}</span>
+                                                                <span className="text-red-600 dark:text-red-400">BAL: ₹{emi.remainingAmount || 0}</span>
+                                                            </div>
+                                                            <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="bg-green-500 h-full rounded-full transition-all duration-500"
+                                                                    style={{ width: `${Math.min(100, ((emi.totalPaid || 0) / emi.totalPayable) * 100)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className={`px-2 py-0.5 inline-flex text-[9px] leading-4 font-black rounded uppercase border ${emi.emiStatus === 'Active' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'}`}>
+                                                                {emi.emiStatus}
+                                                            </span>
+                                                        </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                                        {new Date(emi.nextDueDate).toLocaleDateString()}
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">{emi.installmentsPaid || 0} / {emi.tenureValue}</div>
+                                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-tighter">Months Paid</div>
+                                                        {emi.lastPaymentDate && (
+                                                            <div className="text-[9px] text-green-600 dark:text-green-500 font-bold mt-1">Last: {new Date(emi.lastPaymentDate).toLocaleDateString()}</div>
+                                                        )}
+                                                        <div className="text-[10px] text-orange-600 dark:text-orange-400 font-bold mt-1">{(emi.tenureValue - (emi.installmentsPaid || 0))} Remaining</div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">{new Date(emi.nextDueDate).toLocaleDateString()}</div>
+                                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase">Scheduled</div>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <button
@@ -721,6 +955,155 @@ function ShopOwnerDashboard() {
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    )}
+
+                    {/* DISCOUNTS TAB */}
+                    {activeTab === 'discounts' && (
+                        <div className="space-y-6">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                                        <Tag className="text-orange-500" /> Discount Management
+                                    </h2>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm">Configure festival offers, bulk discounts, and special prices.</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowDiscountForm(!showDiscountForm)}
+                                    className="bg-orange-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-orange-600/30 hover:bg-orange-700 flex items-center gap-2 font-medium transition-all"
+                                >
+                                    <Plus size={20} /> {showDiscountForm ? 'View All Discounts' : 'Create New Discount'}
+                                </button>
+                            </div>
+
+                            {showDiscountForm ? (
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-4xl mx-auto">
+                                    <h3 className="text-xl font-bold mb-6 text-gray-900 dark:text-white">Create Discount Rule</h3>
+                                    <form onSubmit={handleDiscountSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Offer Name</label>
+                                            <input type="text" name="name" required value={discountFormData.name} onChange={handleDiscountInputChange} placeholder="e.g. Diwali Dhamaka, Year End Sale" className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 outline-none transition-all dark:bg-gray-700 dark:text-white" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discount Type</label>
+                                            <select name="type" value={discountFormData.type} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white">
+                                                <option value="Festival">Festival Offer</option>
+                                                <option value="Bulk">Bulk Quantity Discount</option>
+                                                <option value="SpecialOffer">Special Price Drop</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Scope</label>
+                                            <select name="scope" value={discountFormData.scope} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white">
+                                                <option value="ShopWide">Entire Shop</option>
+                                                <option value="CategoryWide">Specific Category</option>
+                                                <option value="ProductSpecific">Specific Product</option>
+                                            </select>
+                                        </div>
+                                        {discountFormData.scope === 'CategoryWide' && (
+                                            <div className="col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category Name</label>
+                                                <input type="text" name="category" required value={discountFormData.category} onChange={handleDiscountInputChange} placeholder="Enter category name" className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white" />
+                                            </div>
+                                        )}
+                                        {discountFormData.scope === 'ProductSpecific' && (
+                                            <div className="col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Product</label>
+                                                <select name="productId" required value={discountFormData.productId} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white">
+                                                    <option value="">Choose a product...</option>
+                                                    {Array.isArray(products) && products.map(p => <option key={p._id} value={p._id}>{p.productName} ({p.brand})</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Calculation Method</label>
+                                            <select name="discountType" value={discountFormData.discountType} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white">
+                                                <option value="Percentage">Percentage (%)</option>
+                                                <option value="FixedAmount">Fixed Amount (₹)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Value ({discountFormData.discountType === 'Percentage' ? '%' : '₹'})</label>
+                                            <input type="number" name="value" required value={discountFormData.value} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white" />
+                                        </div>
+                                        {discountFormData.type === 'Bulk' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Minimum Quantity</label>
+                                                <input type="number" name="minQuantity" required value={discountFormData.minQuantity} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white" />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+                                            <input type="date" name="startDate" value={discountFormData.startDate} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+                                            <input type="date" name="endDate" value={discountFormData.endDate} onChange={handleDiscountInputChange} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 dark:bg-gray-700 dark:text-white" />
+                                        </div>
+                                        <div className="col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                            <button type="button" onClick={() => setShowDiscountForm(false)} className="px-6 py-2.5 text-gray-600 dark:text-gray-400 font-medium font-bold">Cancel</button>
+                                            <button type="submit" className="bg-orange-600 text-white px-8 py-2.5 rounded-xl hover:bg-orange-700 font-bold shadow-lg shadow-orange-500/30 transition-all">Create Discount</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {Array.isArray(discounts) && discounts.length > 0 ? (
+                                        discounts.map((discount) => (
+                                            <div key={discount._id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className={`p-2 rounded-lg ${discount.isActive ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' : 'bg-gray-50 text-gray-400 dark:bg-gray-700 dark:text-gray-500'}`}>
+                                                        {discount.type === 'Festival' ? <Clock size={20} /> : <Percent size={20} />}
+                                                    </div>
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={discount.isActive}
+                                                            onChange={() => handleToggleDiscount(discount._id, discount.isActive)}
+                                                            className="sr-only peer"
+                                                        />
+                                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-600"></div>
+                                                    </label>
+                                                </div>
+                                                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{discount.name}</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest mb-4">
+                                                    {discount.type} • {discount.scope.replace('Wide', '')}
+                                                </p>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="text-3xl font-black text-orange-600 dark:text-orange-400">
+                                                        {discount.discountType === 'Percentage' ? `${discount.value}%` : `₹${discount.value}`}
+                                                    </div>
+                                                    <div className="text-[10px] leading-tight text-gray-400 font-bold uppercase">
+                                                        Off on <br />
+                                                        {discount.scope === 'ShopWide' ? (
+                                                            <span className="text-orange-600 dark:text-orange-400">All Items</span>
+                                                        ) : discount.scope === 'CategoryWide' ? (
+                                                            <span className="text-blue-600 dark:text-blue-400">{discount.category} Category</span>
+                                                        ) : (
+                                                            <span className="text-blue-600 dark:text-blue-400">
+                                                                {products.find(p => p._id === discount.productId)?.productName || 'Selected Item'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {discount.startDate && (
+                                                    <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between text-[11px] text-gray-500 font-medium">
+                                                        <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(discount.startDate).toLocaleDateString()}</span>
+                                                        <span>to</span>
+                                                        <span>{new Date(discount.endDate).toLocaleDateString()}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="col-span-full py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-gray-400">
+                                            <Tag size={48} className="opacity-20 mb-4" />
+                                            <p className="text-lg font-medium">No discounts configured</p>
+                                            <p className="text-sm">Click the button above to create your first offer.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -794,12 +1177,68 @@ function ShopOwnerDashboard() {
                                         <input type="text" name="modelNumber" value={formData.modelNumber} placeholder="Model Number" onChange={handleInputChange} className="border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:text-white" />
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
-                                        <select name="itemType" value={formData.itemType} onChange={handleInputChange} className="border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white">
-                                            <option value="electronics">Electronics</option>
-                                            <option value="electrical">Electrical</option>
-                                        </select>
-                                        <input type="text" name="category" value={formData.category} placeholder="Category" required onChange={handleInputChange} className="border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:text-white" />
-                                        <input type="text" name="skuCode" value={formData.skuCode} placeholder="SKU" required onChange={handleInputChange} className="border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:text-white" />
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Item Type</label>
+                                            <select name="itemType" value={formData.itemType} onChange={(e) => {
+                                                handleInputChange(e);
+                                                if (!isManualCategory) setFormData(p => ({ ...p, category: '' }));
+                                            }} className="border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white">
+                                                <option value="electronics">Electronics</option>
+                                                <option value="electrical">Electrical</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-1 relative">
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Category</label>
+                                            <div className="relative">
+                                                {!isManualCategory ? (
+                                                    <select
+                                                        name="category"
+                                                        value={formData.category}
+                                                        onChange={handleInputChange}
+                                                        required
+                                                        className="w-full border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white appearance-none pr-10"
+                                                    >
+                                                        <option value="">Select Category</option>
+                                                        {[
+                                                            ...new Set([
+                                                                ...products
+                                                                    .filter(p => p.itemType === formData.itemType)
+                                                                    .map(p => p.category),
+                                                                ...(currentShop?.customCategories?.[formData.itemType] || [])
+                                                            ].filter(Boolean))
+                                                        ].sort().map(cat => (
+                                                            <option key={cat} value={cat}>{cat}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        name="category"
+                                                        value={formData.category}
+                                                        placeholder="New Category"
+                                                        required
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:text-white pr-10"
+                                                    />
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newMode = !isManualCategory;
+                                                        setIsManualCategory(newMode);
+                                                        setFormData(p => ({ ...p, category: '' }));
+                                                    }}
+                                                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all ${isManualCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200'}`}
+                                                    title={isManualCategory ? "Switch to List" : "Add New Category"}
+                                                >
+                                                    {isManualCategory ? <Layers size={14} /> : <Plus size={14} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">SKU Code</label>
+                                            <input type="text" name="skuCode" value={formData.skuCode} placeholder="SKU" required onChange={handleInputChange} className="border border-gray-300 dark:border-gray-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:text-white" />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -829,6 +1268,34 @@ function ShopOwnerDashboard() {
                                             <option value="kg">Kg</option>
                                         </select>
                                     </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5 p-4 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-800">
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                name="onSpecialOffer"
+                                                id="onSpecialOffer"
+                                                checked={formData.onSpecialOffer}
+                                                onChange={(e) => setFormData(p => ({ ...p, onSpecialOffer: e.target.checked }))}
+                                                className="h-5 w-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                                            />
+                                            <label htmlFor="onSpecialOffer" className="text-sm font-bold text-orange-800 dark:text-orange-400 cursor-pointer flex items-center gap-2">
+                                                <Tag size={16} /> Mark as Special Offer
+                                            </label>
+                                        </div>
+                                        {formData.onSpecialOffer && (
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-600 font-bold text-sm">₹</span>
+                                                <input
+                                                    type="number"
+                                                    name="discountedPrice"
+                                                    value={formData.discountedPrice}
+                                                    placeholder="Offer Price"
+                                                    onChange={handleInputChange}
+                                                    className="border border-orange-200 dark:border-orange-900 p-3 pl-8 rounded-lg w-full focus:ring-2 focus:ring-orange-500 outline-none dark:bg-gray-800 dark:text-white"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="col-span-2">
@@ -857,7 +1324,7 @@ function ShopOwnerDashboard() {
                                                     />
                                                     <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 flex items-center justify-center gap-2 group-hover:border-blue-500 transition-colors bg-gray-50 dark:bg-gray-700/50">
                                                         <Upload size={18} className="text-gray-400 group-hover:text-blue-500" />
-                                                        <span className="text-sm text-gray-500 dark:text-gray-400">{selectedFile ? selectedFile.name : 'Choose file...'}</span>
+                                                        <span className="text-sm text-gray-500 dark:text-gray-400">{imagePreview?.startsWith('data:image') ? 'File selected' : 'Choose file...'}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -868,7 +1335,7 @@ function ShopOwnerDashboard() {
                                                     <img src={imagePreview} alt="Preview" className="max-h-32 object-contain rounded-lg shadow-sm" />
                                                     <button
                                                         type="button"
-                                                        onClick={() => { setImagePreview(null); setSelectedFile(null); setFormData(p => ({ ...p, imageUrl: '' })) }}
+                                                        onClick={() => { setImagePreview(null); setFormData(p => ({ ...p, imageUrl: '' })) }}
                                                         className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                                     >
                                                         <Trash2 size={14} />
@@ -1064,6 +1531,41 @@ function ShopOwnerDashboard() {
                     </div>
                 )
             }
+
+            {/* Custom Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md overflow-hidden transform transition-all animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                                <AlertCircle size={28} />
+                                <h3 className="text-xl font-bold">Confirm Deletion</h3>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-300">
+                                Are you sure you want to delete <span className="font-bold text-gray-900 dark:text-white">"{deleteItem.name}"</span>?
+                                This action cannot be undone and will permanently remove this {deleteItem.type} from your records.
+                            </p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 px-6 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeleteItem({ id: null, type: '', name: '' });
+                                }}
+                                className="px-5 py-2.5 rounded-xl font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-6 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/30 transition-all flex items-center gap-2"
+                            >
+                                <Trash2 size={18} /> Yes, Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     )
 }

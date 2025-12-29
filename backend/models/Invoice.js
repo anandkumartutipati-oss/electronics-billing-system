@@ -15,7 +15,10 @@ const invoiceSchema = mongoose.Schema({
         hsnCode: String,
         quantity: Number,
         unit: String,
-        price: Number, // Selling price at time of sale
+        price: Number, // Original selling price at time of sale
+        discountAmount: { type: Number, default: 0 },
+        appliedDiscountType: { type: String }, // Bulk, Festival, Loyalty, SpecialOffer
+        finalPrice: Number, // Price after discount
         gstPercent: Number,
         gstAmount: Number,
         total: Number,
