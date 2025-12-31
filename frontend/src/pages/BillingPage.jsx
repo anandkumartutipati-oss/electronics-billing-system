@@ -35,9 +35,9 @@ function BillingPage({ onNavigate, searchTerm }) {
 
     // EMI State
     const [emiDetails, setEmiDetails] = useState({
-        interestRate: 0,
+        interestRate: '',
         tenureType: 'months',
-        tenureValue: 0
+        tenureValue: ''
     })
 
     const [categoryFilter, setCategoryFilter] = useState('All')
@@ -427,7 +427,12 @@ function BillingPage({ onNavigate, searchTerm }) {
                             placeholder="Mobile (10 digits)"
                             className="p-3 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 dark:text-white focus:bg-white dark:focus:bg-gray-600 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
                             value={customer.mobile}
-                            onChange={(e) => setCustomer({ ...customer, mobile: e.target.value })}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (/^\d*$/.test(val) && val.length <= 10) {
+                                    setCustomer({ ...customer, mobile: val })
+                                }
+                            }}
                             maxLength={10}
                         />
                         <input
@@ -531,7 +536,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     type="number"
                                     className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                                     value={splitPayments.cash}
-                                    onChange={(e) => setSplitPayments({ ...splitPayments, cash: e.target.value })}
+                                    onChange={(e) => e.target.value >= 0 && setSplitPayments({ ...splitPayments, cash: e.target.value })}
                                     onBlur={(e) => setSplitPayments({ ...splitPayments, cash: e.target.value === '' ? 0 : Number(e.target.value) })}
                                 />
                             </div>
@@ -541,7 +546,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     type="number"
                                     className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                                     value={splitPayments.upi}
-                                    onChange={(e) => setSplitPayments({ ...splitPayments, upi: e.target.value })}
+                                    onChange={(e) => e.target.value >= 0 && setSplitPayments({ ...splitPayments, upi: e.target.value })}
                                     onBlur={(e) => setSplitPayments({ ...splitPayments, upi: e.target.value === '' ? 0 : Number(e.target.value) })}
                                 />
                             </div>
@@ -551,7 +556,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     type="number"
                                     className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                                     value={splitPayments.card}
-                                    onChange={(e) => setSplitPayments({ ...splitPayments, card: e.target.value })}
+                                    onChange={(e) => e.target.value >= 0 && setSplitPayments({ ...splitPayments, card: e.target.value })}
                                     onBlur={(e) => setSplitPayments({ ...splitPayments, card: e.target.value === '' ? 0 : Number(e.target.value) })}
                                 />
                             </div>
@@ -561,7 +566,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     type="number"
                                     className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                                     value={splitPayments.emi}
-                                    onChange={(e) => setSplitPayments({ ...splitPayments, emi: e.target.value })}
+                                    onChange={(e) => e.target.value >= 0 && setSplitPayments({ ...splitPayments, emi: e.target.value })}
                                     onBlur={(e) => setSplitPayments({ ...splitPayments, emi: e.target.value === '' ? 0 : Number(e.target.value) })}
                                 />
                             </div>
@@ -584,7 +589,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     placeholder="Rate % (Yr)"
                                     className="w-1/2 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 dark:bg-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                     value={emiDetails.interestRate}
-                                    onChange={(e) => setEmiDetails({ ...emiDetails, interestRate: e.target.value })}
+                                    onChange={(e) => e.target.value >= 0 && setEmiDetails({ ...emiDetails, interestRate: e.target.value })}
                                 />
                                 <div className="flex w-1/2 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 overflow-hidden">
                                     <input
@@ -592,15 +597,15 @@ function BillingPage({ onNavigate, searchTerm }) {
                                         placeholder="Time"
                                         className="w-2/3 p-2.5 text-sm outline-none dark:bg-gray-800 dark:text-white"
                                         value={emiDetails.tenureValue}
-                                        onChange={(e) => setEmiDetails({ ...emiDetails, tenureValue: e.target.value })}
+                                        onChange={(e) => e.target.value >= 0 && setEmiDetails({ ...emiDetails, tenureValue: e.target.value })}
                                     />
                                     <select
                                         className="w-1/3 bg-gray-50 dark:bg-gray-700 text-xs border-l dark:border-gray-700 outline-none dark:text-white"
                                         value={emiDetails.tenureType}
                                         onChange={(e) => setEmiDetails({ ...emiDetails, tenureType: e.target.value })}
                                     >
-                                        <option value="months">Mo</option>
-                                        <option value="years">Yr</option>
+                                        <option value="months">Months</option>
+                                        <option value="years">Years</option>
                                     </select>
                                 </div>
                             </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
+import PRODUCT_CATEGORIES from '../constants/productCategories'
 import { getProducts, createProduct, importProducts, deleteProduct, updateProduct, reset as resetProducts } from '../features/products/productSlice'
 import { getSuppliers, createSupplier, deleteSupplier, reset as resetSuppliers } from '../features/suppliers/supplierSlice'
 import { getShop } from '../features/shops/shopSlice'
@@ -433,16 +434,32 @@ function ShopOwnerDashboard() {
     };
 
     const handleInputChange = (e) => {
+        const { name, value } = e.target;
+
+        // Prevent negative values for numeric fields
+        const numericFields = ['purchasePrice', 'sellingPrice', 'gstPercent', 'stockQuantity', 'warrantyMonths', 'guaranteeMonths', 'discountedPrice'];
+        if (numericFields.includes(name)) {
+            if (value < 0) return; // Block negative inputs
+        }
+
         setFormData((prev) => ({
             ...prev,
-            [e.target.name]: e.target.value
+            [name]: value
         }))
     }
 
     const handleSupplierChange = (e) => {
+        const { name, value } = e.target;
+
+        // Phone Validation: Only digits, max 10 chars
+        if (name === 'phone') {
+            if (!/^\d*$/.test(value)) return; // Only digits
+            if (value.length > 10) return; // Max 10
+        }
+
         setSupplierData((prev) => ({
             ...prev,
-            [e.target.name]: e.target.value
+            [name]: value
         }))
     }
 
@@ -1529,6 +1546,7 @@ function ShopOwnerDashboard() {
                                                         <option value="">Select Category</option>
                                                         {[
                                                             ...new Set([
+                                                                ...(PRODUCT_CATEGORIES[formData.itemType] || []),
                                                                 ...products
                                                                     .filter(p => p.itemType === formData.itemType)
                                                                     .map(p => p.category),
@@ -1757,7 +1775,7 @@ function ShopOwnerDashboard() {
                                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-green-500 outline-none dark:bg-gray-700 dark:text-white"
                                         required
                                         value={paymentData.amount}
-                                        onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                                        onChange={(e) => e.target.value >= 0 && setPaymentData({ ...paymentData, amount: e.target.value })}
                                     />
                                 </div>
                                 <div className="mb-8">
