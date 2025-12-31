@@ -12,26 +12,31 @@ const generateToken = (id, sessionId) => {
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+        const user = await User.findOne({ email });
 
-    if (user && (await user.matchPassword(password))) {
-        // Generate Session ID (timestamp + random)
-        const sessionId = new Date().getTime().toString() + Math.random().toString(36).substring(7);
-        user.currentSessionId = sessionId;
-        await user.save();
+        if (user && (await user.matchPassword(password))) {
+            // Generate Session ID (timestamp + random)
+            const sessionId = new Date().getTime().toString() + Math.random().toString(36).substring(7);
+            user.currentSessionId = sessionId;
+            await user.save();
 
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            shopId: user.shopId,
-            token: generateToken(user._id, sessionId),
-        });
-    } else {
-        res.status(401).json({ message: 'Invalid email or password' });
+            res.json({
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                shopId: user.shopId,
+                token: generateToken(user._id, sessionId),
+            });
+        } else {
+            res.status(401).json({ message: 'Invalid email or password' });
+        }
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ error: error.message, stack: error.stack });
     }
 };
 
