@@ -2,7 +2,7 @@ import Shop from '../models/Shop.js';
 import User from '../models/User.js';
 import fs from 'fs';
 import csv from 'csv-parser';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 
 // @desc    Create a new shop (Super Admin)
