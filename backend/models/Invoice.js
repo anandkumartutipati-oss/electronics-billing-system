@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const invoiceSchema = mongoose.Schema({
     shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
@@ -50,4 +50,4 @@ const invoiceSchema = mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Invoice', invoiceSchema);
+export default mongoose.model('Invoice', invoiceSchema);

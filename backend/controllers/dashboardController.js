@@ -1,8 +1,9 @@
-const mongoose = require('mongoose');
-const Product = require('../models/Product');
-const Invoice = require('../models/Invoice');
-const EMI = require('../models/EMI');
-const Shop = require('../models/Shop');
+import mongoose from 'mongoose';
+import Product from '../models/Product.js';
+import Invoice from '../models/Invoice.js';
+import EMI from '../models/EMI.js';
+import Shop from '../models/Shop.js';
+import Supplier from '../models/Supplier.js';
 
 // @desc    Get Shop Dashboard Stats
 // @route   GET /api/dashboard/stats
@@ -206,7 +207,7 @@ const getSuperAdminStats = async (req, res) => {
         const totalShops = await Shop.countDocuments();
         const totalProducts = await Product.countDocuments(filter);
         const lowStockProducts = await Product.countDocuments({ ...filter, stockQuantity: { $lte: 5 } });
-        const totalSuppliers = await require('../models/Supplier').countDocuments(filter);
+        const totalSuppliers = await Supplier.countDocuments(filter);
 
         // precise revenue aggregation across all shops
         const revenueAgg = await Invoice.aggregate([
@@ -358,7 +359,7 @@ const getPaymentStats = async (req, res) => {
     }
 }
 
-module.exports = {
+export {
     getShopStats,
     getSalesGraph,
     getLowStockAlerts,

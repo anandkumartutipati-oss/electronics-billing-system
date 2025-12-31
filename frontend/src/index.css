@@ -2,7 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
 
-::-webkit-scrollbar{
-    display: none;
+    /* Global scrollbar hiding */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Global Date/Time Input Styling */
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"] {
+        @apply cursor-pointer relative bg-transparent;
+    }
+
+    /* Dark Mode Support for Native Pickers to prevent white blocks/flickering */
+    :is(.dark) input[type="date"],
+    :is(.dark) input[type="datetime-local"],
+    :is(.dark) input[type="time"] {
+        color-scheme: dark;
+    }
+
+    /* Make the entire input field clickable to open the picker */
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
 }

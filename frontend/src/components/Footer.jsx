@@ -24,15 +24,38 @@ const Footer = () => {
                             Simplify your business today.
                         </p>
                         <div className="flex space-x-3">
-                            {[Facebook, Twitter, Linkedin, Instagram].map((Icon, i) => (
-                                <a
-                                    key={i}
-                                    href="#"
-                                    className="p-2.5 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all duration-300 hover:scale-110"
-                                >
-                                    <Icon size={18} />
-                                </a>
-                            ))}
+                            <a
+                                href="https://www.facebook.com/people/M-Techhive/pfbid0XEx7yjwHN3Bpt4tvjnnmWJS4AQM6sRrRZDckajkParhakKK4zEsdD7fV9dgPLHgKl/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2.5 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all duration-300 hover:scale-110"
+                            >
+                                <Facebook size={18} />
+                            </a>
+                            <a
+                                href="https://x.com/MSTECHHIVE"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2.5 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all duration-300 hover:scale-110"
+                            >
+                                <Twitter size={18} />
+                            </a>
+                            <a
+                                href="https://www.linkedin.com/in/ms-tech-hive-08aa7a378/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2.5 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all duration-300 hover:scale-110"
+                            >
+                                <Linkedin size={18} />
+                            </a>
+                            <a
+                                href="https://www.instagram.com/mstechhive/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2.5 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all duration-300 hover:scale-110"
+                            >
+                                <Instagram size={18} />
+                            </a>
                         </div>
                     </div>
 
@@ -40,10 +63,10 @@ const Footer = () => {
                     <div className="space-y-6">
                         <h4 className="text-lg font-bold text-white">Quick Links</h4>
                         <ul className="space-y-3">
-                            <li><Link to="/" className="hover:text-blue-400 transition-colors">Home</Link></li>
-                            <li><Link to="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
-                            <li><Link to="/features" className="hover:text-blue-400 transition-colors">Features</Link></li>
-                            <li><Link to="/login" className="hover:text-blue-400 transition-colors">Login / Sign Up</Link></li>
+                            <li><Link to="#" className="hover:text-blue-400 transition-colors">Home</Link></li>
+                            <li><Link to="#" className="hover:text-blue-400 transition-colors">About Us</Link></li>
+                            <li><Link to="#" className="hover:text-blue-400 transition-colors">Features</Link></li>
+                            <li><Link to="#" className="hover:text-blue-400 transition-colors">Login / Sign Up</Link></li>
                         </ul>
                     </div>
 

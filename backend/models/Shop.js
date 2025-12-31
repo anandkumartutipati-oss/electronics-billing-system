@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const shopSchema = mongoose.Schema({
     shopName: { type: String, required: true },
@@ -16,6 +16,8 @@ const shopSchema = mongoose.Schema({
     pincode: { type: String, required: true },
     gstNumber: { type: String },
     isActive: { type: Boolean, default: true },
+    logo: { type: String, default: '' },
+    terms: { type: String, default: 'Goods once sold will not be taken back.\nWarranty as per manufacturer terms.' },
     customCategories: {
         electronics: { type: [String], default: [] },
         electrical: { type: [String], default: [] }
@@ -24,4 +26,4 @@ const shopSchema = mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Shop', shopSchema);
+export default mongoose.model('Shop', shopSchema);

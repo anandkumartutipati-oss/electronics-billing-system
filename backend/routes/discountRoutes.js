@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { createDiscount, getDiscounts, updateDiscount } = require('../controllers/discountController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+import { createDiscount, getDiscounts, updateDiscount } from '../controllers/discountController.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
 router.route('/')
     .get(protect, authorize('owner', 'staff'), getDiscounts)
@@ -10,4 +10,4 @@ router.route('/')
 router.route('/:id')
     .put(protect, authorize('owner'), updateDiscount);
 
-module.exports = router;
+export default router;

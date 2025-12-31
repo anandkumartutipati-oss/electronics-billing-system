@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { createInvoice, getInvoices } = require('../controllers/invoiceController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+import { createInvoice, getInvoices } from '../controllers/invoiceController.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
 router.route('/').post(protect, authorize('owner', 'staff'), createInvoice).get(protect, getInvoices);
 
-module.exports = router;
+export default router;

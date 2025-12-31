@@ -1,7 +1,7 @@
-const Invoice = require('../models/Invoice');
-const Product = require('../models/Product');
-const Customer = require('../models/Customer');
-const EMI = require('../models/EMI');
+import Invoice from '../models/Invoice.js';
+import Product from '../models/Product.js';
+import Customer from '../models/Customer.js';
+import EMI from '../models/EMI.js';
 // const StockLog = require('../models/StockLog'); // TODO: Add stock logging later
 
 // @desc    Create a new Invoice
@@ -162,4 +162,4 @@ const getInvoices = async (req, res) => {
     }
 };
 
-module.exports = { createInvoice, getInvoices };
+export { createInvoice, getInvoices };

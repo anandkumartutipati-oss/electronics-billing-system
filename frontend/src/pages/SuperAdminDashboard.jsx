@@ -14,6 +14,7 @@ import DashboardHeader from '../components/DashboardHeader'
 import StatsCard from '../components/StatsCard'
 
 import { useNavigate, useLocation } from 'react-router-dom'
+import useDebounce from '../hooks/useDebounce'
 
 function SuperAdminDashboard() {
     // ... existing hooks
@@ -67,6 +68,7 @@ function SuperAdminDashboard() {
     };
 
     const [searchTerm, setSearchTerm] = useState('')
+    const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const [selectedShopFilter, setSelectedShopFilter] = useState('')
     const [selectedShopStats, setSelectedShopStats] = useState('')
     const [showOffersOnly, setShowOffersOnly] = useState(false)
@@ -239,15 +241,15 @@ function SuperAdminDashboard() {
 
     // Simple Filter
     const filteredShops = shops.filter((shop) =>
-        (shop.shopName && shop.shopName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (shop.ownerId?.name && shop.ownerId.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (shop.location && shop.location.toLowerCase().includes(searchTerm.toLowerCase()))
+        (shop.shopName && shop.shopName.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+        (shop.ownerId?.name && shop.ownerId.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+        (shop.location && shop.location.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
     )
 
     const filteredProducts = products.filter((product) => {
-        const matchesSearch = (product.productName && product.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (product.skuCode && product.skuCode.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesSearch = (product.productName && product.productName.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+            (product.brand && product.brand.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+            (product.skuCode && product.skuCode.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
 
         // Offers Logic (Direct & Rules)
         const hasDirectOffer = product.onSpecialOffer === true || product.onSpecialOffer === 'true' || product.onSpecialOffer === 1 ||
@@ -264,9 +266,9 @@ function SuperAdminDashboard() {
         shopName: shop.shopName,
         status: 'Active'
     })).filter(u =>
-        (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (u.shopName && u.shopName.toLowerCase().includes(searchTerm.toLowerCase()))
+        (u.name && u.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+        (u.email && u.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+        (u.shopName && u.shopName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
     )
 
     return (
@@ -349,7 +351,7 @@ function SuperAdminDashboard() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                     <StatsCard
                                         title="Total Revenue"
-                                        value={`₹${adminStats.totalRevenue?.toLocaleString() || 0}`}
+                                        value={`₹${Math.round(adminStats.totalRevenue || 0).toLocaleString()}`}
                                         icon={DollarSign}
                                         color="green"
                                     />
@@ -361,7 +363,7 @@ function SuperAdminDashboard() {
                                     />
                                     <StatsCard
                                         title="Avg. Ticket Size"
-                                        value={`₹${adminStats.totalInvoices > 0 ? (adminStats.totalRevenue / adminStats.totalInvoices).toFixed(0) : 0}`}
+                                        value={`₹${adminStats.totalInvoices > 0 ? Math.round(adminStats.totalRevenue / adminStats.totalInvoices) : 0}`}
                                         icon={TrendingUp}
                                         color="purple"
                                     />
@@ -760,13 +762,13 @@ function SuperAdminDashboard() {
                                                     <td className="px-6 py-4 text-sm">
                                                         <div className="flex flex-col">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-gray-900 dark:text-white font-bold">₹{product.onSpecialOffer && product.discountedPrice ? product.discountedPrice : product.sellingPrice}</span>
+                                                                <span className="text-gray-900 dark:text-white font-bold">₹{Math.round(product.onSpecialOffer && product.discountedPrice ? product.discountedPrice : product.sellingPrice)}</span>
                                                                 {product.onSpecialOffer && (
                                                                     <span className="text-[10px] bg-red-100 text-red-600 dark:bg-red-900/40 px-1 rounded font-black uppercase">OFFER</span>
                                                                 )}
                                                             </div>
                                                             {product.onSpecialOffer && product.discountedPrice && (
-                                                                <span className="text-[10px] line-through text-gray-400">₹{product.sellingPrice}</span>
+                                                                <span className="text-[10px] line-through text-gray-400">₹{Math.round(product.sellingPrice)}</span>
                                                             )}
                                                         </div>
                                                     </td>

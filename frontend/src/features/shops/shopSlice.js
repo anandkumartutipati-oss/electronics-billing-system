@@ -29,6 +29,25 @@ export const createShop = createAsyncThunk(
     }
 )
 
+// Update Shop Settings (Owner)
+export const updateShopSettings = createAsyncThunk(
+    'shops/updateSettings',
+    async (shopData, thunkAPI) => {
+        try {
+            const token = thunkAPI.getState().auth.user.token
+            return await shopService.updateShopSettings(shopData, token)
+        } catch (error) {
+            const message =
+                (error.response &&
+                    error.response.data &&
+                    error.response.data.message) ||
+                error.message ||
+                error.toString()
+            return thunkAPI.rejectWithValue(message)
+        }
+    }
+)
+
 // Get all shops
 export const getShops = createAsyncThunk(
     'shops/getAll',
@@ -132,6 +151,22 @@ export const shopSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(updateShopSettings.pending, (state) => {
+                state.isLoading = true
+            })
+            .addCase(updateShopSettings.fulfilled, (state, action) => {
+                state.isLoading = false
+                state.isSuccess = true
+                state.currentShop = action.payload
+                state.shops = state.shops.map((shop) =>
+                    shop._id === action.payload._id ? action.payload : shop
+                )
+            })
+            .addCase(updateShopSettings.rejected, (state, action) => {
+                state.isLoading = false
+                state.isError = true
+                state.message = action.payload
+            })
             .addCase(createShop.pending, (state) => {
                 state.isLoading = true
             })

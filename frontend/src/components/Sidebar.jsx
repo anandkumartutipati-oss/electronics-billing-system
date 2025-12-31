@@ -17,9 +17,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
+    const { currentShop } = useSelector((state) => state.shops);
 
     // Logout Modal State
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+    const [logoError, setLogoError] = useState(false);
 
     const onLogoutClick = () => {
         setIsLogoutModalOpen(true);
@@ -52,11 +54,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/shop/overview' },
         { id: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/shop/analytics' },
         { id: 'products', label: 'Products', icon: ShoppingBag, path: '/shop/products' },
+        { id: 'billing', label: 'New Bill (POS)', icon: Calculator, path: '/shop/billing' },
         { id: 'invoices', label: 'Invoices', icon: FileText, path: '/shop/invoices' },
         { id: 'suppliers', label: 'Suppliers', icon: Truck, path: '/shop/suppliers' },
         { id: 'emi', label: 'EMI / Loans', icon: CreditCard, path: '/shop/emi' },
         { id: 'discounts', label: 'Discounts', icon: Tag, path: '/shop/discounts' },
-        { id: 'billing', label: 'New Bill (POS)', icon: Calculator, path: '/shop/billing' },
+        { id: 'settings', label: 'Settings', icon: Users, path: '/shop/settings' },
+
     ];
 
     // Navigation for Super Admin
@@ -72,12 +76,33 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return (
         <>
             <div className={`fixed inset-y-0 left-0 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition duration-200 ease-in-out z-30 bg-white dark:bg-black border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-white w-64 flex flex-col h-screen flex-shrink-0`}>
-                <div className="flex items-center justify-center h-20 shadow-sm border-b border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-center h-20 shadow-sm border-b border-gray-200 dark:border-gray-800 p-4">
                     <Link
                         to={user?.role === 'superadmin' ? '/superadmin/overview' : '/shop/overview'}
-                        className="text-2xl font-bold text-blue-600 dark:text-blue-500 hover:opacity-80 transition-opacity"
+                        className="flex items-center gap-3 w-full hover:opacity-80 transition-opacity"
                     >
-                        ElectroBill
+                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800 overflow-hidden flex-shrink-0">
+                            {currentShop?.logo && !logoError ? (
+                                <img
+                                    src={currentShop.logo}
+                                    alt="Logo"
+                                    className="w-full h-full object-cover"
+                                    onError={() => setLogoError(true)}
+                                />
+                            ) : (
+                                <span className="text-xl font-black text-blue-600 dark:text-blue-400">
+                                    {currentShop?.shopName?.charAt(0) || 'E'}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                            <h1 className="text-lg font-bold text-gray-800 dark:text-white truncate leading-tight">
+                                {currentShop?.shopName || 'ElectroBill'}
+                            </h1>
+                            <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider truncate">
+                                {user?.role === 'superadmin' ? 'Super Admin' : currentShop?.gstNumber ? 'GST Registered' : 'Billing System'}
+                            </p>
+                        </div>
                     </Link>
                 </div>
 

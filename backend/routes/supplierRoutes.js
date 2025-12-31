@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { createSupplier, getSuppliers, deleteSupplier } = require('../controllers/supplierController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+import { createSupplier, getSuppliers, deleteSupplier } from '../controllers/supplierController.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
 router.route('/').post(protect, authorize('owner'), createSupplier).get(protect, getSuppliers);
 router.route('/:id').delete(protect, authorize('owner'), deleteSupplier);
-module.exports = router;
+export default router;

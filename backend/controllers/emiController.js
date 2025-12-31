@@ -1,5 +1,5 @@
-const EMI = require('../models/EMI');
-const EmiPayment = require('../models/EmiPayment');
+import EMI from '../models/EMI.js';
+import EmiPayment from '../models/EmiPayment.js';
 
 // @desc    Get all EMIs for a shop
 // @route   GET /api/emi
@@ -91,4 +91,4 @@ const payEMI = async (req, res) => {
     }
 };
 
-module.exports = { getEMIs, getEmiDetails, payEMI };
+export { getEMIs, getEmiDetails, payEMI };

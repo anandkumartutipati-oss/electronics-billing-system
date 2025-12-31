@@ -1,5 +1,9 @@
-import multer from 'multer';
+
 import path from 'path';
+import express from 'express';
+import multer from 'multer';
+
+const router = express.Router();
 
 const storage = multer.diskStorage({
     destination(req, file, cb) {
@@ -14,25 +18,29 @@ const storage = multer.diskStorage({
 });
 
 function checkFileType(file, cb) {
-    const filetypes = /csv|jpg|jpeg|png|webp/;
+    const filetypes = /jpg|jpeg|png/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype) ||
-        file.mimetype === 'text/csv' ||
-        file.mimetype === 'application/vnd.ms-excel' ||
-        file.mimetype.startsWith('image/');
+    const mimetype = filetypes.test(file.mimetype);
 
     if (extname && mimetype) {
         return cb(null, true);
     } else {
-        cb('Error: CSV or Images Only!');
+        cb('Images only!');
     }
 }
 
 const upload = multer({
     storage,
-    // fileFilter: function (req, file, cb) {
-    //   checkFileType(file, cb);
-    // },
+    fileFilter: function (req, file, cb) {
+        checkFileType(file, cb);
+    },
 });
 
-export default upload;
+router.post('/', upload.single('image'), (req, res) => {
+    res.json({
+        message: 'Image uploaded',
+        imagePath: `/${req.file.path.replace(/\\/g, '/')}`,
+    });
+});
+
+export default router;

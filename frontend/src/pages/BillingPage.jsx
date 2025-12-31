@@ -293,8 +293,8 @@ function BillingPage({ onNavigate, searchTerm }) {
         // Validate Split Payments if Mixed
         if (paymentMode === 'Mixed') {
             const totalPaid = Number(splitPayments.cash) + Number(splitPayments.upi) + Number(splitPayments.card) + Number(splitPayments.emi)
-            if (Math.abs(totalPaid - grandTotal) > 1) {
-                toast.error(`Payment mismatch! Total Paid: ₹${totalPaid}, Balance: ₹${grandTotal.toFixed(2)}`)
+            if (Math.abs(totalPaid - Math.round(grandTotal)) > 1) {
+                toast.error(`Payment mismatch! Total Paid: ₹${totalPaid}, Balance: ₹${Math.round(grandTotal)}`)
                 return
             }
         }
@@ -399,9 +399,9 @@ function BillingPage({ onNavigate, searchTerm }) {
                                         </p>
                                         <div className="text-right">
                                             {calculateItemDiscount(product, 1).discountAmount > 0 && (
-                                                <div className="text-[10px] line-through text-gray-400">&#8377;{product.sellingPrice}</div>
+                                                <div className="text-[10px] line-through text-gray-400">&#8377;{Math.round(product.sellingPrice)}</div>
                                             )}
-                                            <div className="font-bold text-blue-600 dark:text-blue-400">&#8377;{calculateItemDiscount(product, 1).finalPrice}</div>
+                                            <div className="font-bold text-blue-600 dark:text-blue-400">&#8377;{Math.round(calculateItemDiscount(product, 1).finalPrice)}</div>
                                         </div>
                                     </div>
                                 </button>
@@ -464,11 +464,11 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         {item.discountAmount > 0 ? (
                                             <>
-                                                <span className="line-through opacity-50 mr-2">&#8377;{item.price}</span>
-                                                <span className="text-blue-600 dark:text-blue-400 font-bold">&#8377;{item.finalPrice}</span>
+                                                <span className="line-through opacity-50 mr-2">&#8377;{Math.round(item.price)}</span>
+                                                <span className="text-blue-600 dark:text-blue-400 font-bold">&#8377;{Math.round(item.finalPrice)}</span>
                                             </>
                                         ) : (
-                                            <span>&#8377;{item.price}</span>
+                                            <span>&#8377;{Math.round(item.price)}</span>
                                         )}
                                         <span> x {item.quantity} | GST: {item.gstPercent}%</span>
                                     </div>
@@ -480,9 +480,9 @@ function BillingPage({ onNavigate, searchTerm }) {
                                         <button onClick={() => updateQuantity(item.productId, 1)} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-r-lg text-gray-600 dark:text-gray-300 transition-colors"><Plus size={14} /></button>
                                     </div>
                                     <div className="w-24 text-right">
-                                        <div className="font-bold text-gray-900 dark:text-white">&#8377;{item.total.toFixed(2)}</div>
+                                        <div className="font-bold text-gray-900 dark:text-white">&#8377;{Math.round(item.total)}</div>
                                         {item.discountAmount > 0 && (
-                                            <div className="text-[10px] text-green-600 font-bold">Saved &#8377;{(item.discountAmount * item.quantity).toFixed(2)}</div>
+                                            <div className="text-[10px] text-green-600 font-bold">Saved &#8377;{Math.round(item.discountAmount * item.quantity)}</div>
                                         )}
                                     </div>
                                     <button onClick={() => removeFromCart(item.productId)} className="text-gray-400 hover:text-red-500 p-1.5 transition-colors opacity-0 group-hover:opacity-100">
@@ -567,8 +567,8 @@ function BillingPage({ onNavigate, searchTerm }) {
                             </div>
                             <div className="col-span-2 pt-2 border-t dark:border-gray-700 flex justify-between items-center">
                                 <span className="text-xs font-bold text-gray-500 uppercase">Remaining to pay</span>
-                                <span className={`text-lg font-black ${(Number(splitPayments.cash) + Number(splitPayments.upi) + Number(splitPayments.card) + Number(splitPayments.emi)) > grandTotal ? 'text-red-500' : 'text-blue-600'}`}>
-                                    &#8377;{(grandTotal - (Number(splitPayments.cash) + Number(splitPayments.upi) + Number(splitPayments.card) + Number(splitPayments.emi))).toFixed(2)}
+                                <span className={`text-lg font-black ${(Number(splitPayments.cash) + Number(splitPayments.upi) + Number(splitPayments.card) + Number(splitPayments.emi)) > Math.round(grandTotal) ? 'text-red-500' : 'text-blue-600'}`}>
+                                    &#8377;{Math.round(grandTotal - (Number(splitPayments.cash) + Number(splitPayments.upi) + Number(splitPayments.card) + Number(splitPayments.emi)))}
                                 </span>
                             </div>
                         </div>
@@ -606,10 +606,10 @@ function BillingPage({ onNavigate, searchTerm }) {
                             </div>
                             {emiPreview && (
                                 <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1.5 font-medium">
-                                    <div className="flex justify-between"><span>Loan Amount:</span> <span className="font-bold">&#8377;{paymentMode === 'EMI' ? grandTotal.toFixed(2) : splitPayments.emi.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span>Monthly EMI:</span> <span className="font-bold">&#8377;{emiPreview.monthly}</span></div>
-                                    <div className="flex justify-between"><span>Total Interest:</span> <span>&#8377;{emiPreview.interest.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span>Total Payable:</span> <span>&#8377;{emiPreview.total.toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span>Loan Amount:</span> <span className="font-bold">&#8377;{paymentMode === 'EMI' ? Math.round(grandTotal) : Math.round(splitPayments.emi)}</span></div>
+                                    <div className="flex justify-between"><span>Monthly EMI:</span> <span className="font-bold">&#8377;{Math.round(emiPreview.monthly)}</span></div>
+                                    <div className="flex justify-between"><span>Total Interest:</span> <span>&#8377;{Math.round(emiPreview.interest)}</span></div>
+                                    <div className="flex justify-between"><span>Total Payable:</span> <span>&#8377;{Math.round(emiPreview.total)}</span></div>
                                 </div>
                             )}
                         </div>
@@ -618,21 +618,21 @@ function BillingPage({ onNavigate, searchTerm }) {
                     <div className="space-y-2 mb-5 text-sm">
                         <div className="flex justify-between text-gray-600 dark:text-gray-400">
                             <span>Subtotal</span>
-                            <span>&#8377;{subTotal.toFixed(2)}</span>
+                            <span>&#8377;{Math.round(subTotal)}</span>
                         </div>
                         <div className="flex justify-between text-gray-600 dark:text-gray-400">
                             <span>GST Total</span>
-                            <span>&#8377;{totalGST.toFixed(2)}</span>
+                            <span>&#8377;{Math.round(totalGST)}</span>
                         </div>
                         {totalDiscount > 0 && (
                             <div className="flex justify-between text-green-600 font-bold italic">
                                 <span>You Saved</span>
-                                <span>- &#8377;{totalDiscount.toFixed(2)}</span>
+                                <span>- &#8377;{Math.round(totalDiscount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-2xl font-black text-gray-900 dark:text-white pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 mt-2">
                             <span>Total</span>
-                            <span>&#8377;{grandTotal.toFixed(2)}</span>
+                            <span>&#8377;{Math.round(grandTotal)}</span>
                         </div>
                     </div>
 

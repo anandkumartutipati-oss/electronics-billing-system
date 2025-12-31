@@ -1,5 +1,5 @@
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
+import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
 
 // Generate JWT
 const generateToken = (id, sessionId) => {
@@ -103,4 +103,4 @@ const updateUserProfile = async (req, res) => {
     }
 };
 
-module.exports = { loginUser, registerUser, updateUserProfile };
+export { loginUser, registerUser, updateUserProfile };

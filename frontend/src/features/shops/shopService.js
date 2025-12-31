@@ -82,6 +82,19 @@ const deleteShop = async (shopId, token) => {
     return response.data
 }
 
+// Update shop settings (Owner)
+const updateShopSettings = async (shopData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    }
+
+    const response = await axios.put(API_URL + 'profile', shopData, config)
+
+    return response.data
+}
+
 const shopService = {
     createShop,
     getShops,
@@ -89,6 +102,7 @@ const shopService = {
     updateShop,
     deleteShop,
     importShops,
+    updateShopSettings,
 }
 
 export default shopService

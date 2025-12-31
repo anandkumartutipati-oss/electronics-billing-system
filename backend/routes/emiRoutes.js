@@ -1,10 +1,10 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { getEMIs, getEmiDetails, payEMI } = require('../controllers/emiController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+import { getEMIs, getEmiDetails, payEMI } from '../controllers/emiController.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
 router.route('/').get(protect, getEMIs);
 router.route('/:id').get(protect, getEmiDetails);
 router.route('/:id/pay').post(protect, payEMI);
 
-module.exports = router;
+export default router;

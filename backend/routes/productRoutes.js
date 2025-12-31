@@ -1,11 +1,11 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const upload = require('../middleware/uploadMiddleware');
-const { createProduct, getProducts, updateProduct, importProducts } = require('../controllers/productController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+import upload from '../middleware/uploadMiddleware.js';
+import { createProduct, getProducts, updateProduct, importProducts } from '../controllers/productController.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
 router.route('/').post(protect, authorize('owner', 'staff'), createProduct).get(protect, getProducts);
 router.post('/import', protect, authorize('owner', 'superadmin'), upload.single('file'), importProducts);
 router.route('/:id').put(protect, authorize('owner'), updateProduct);
 
-module.exports = router;
+export default router;

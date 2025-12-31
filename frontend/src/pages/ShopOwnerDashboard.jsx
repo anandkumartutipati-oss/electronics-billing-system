@@ -17,10 +17,15 @@ import SalesChart from '../components/SalesChart'
 import LowStockAlert from '../components/LowStockAlert'
 import PaymentChart from '../components/PaymentChart'
 import CategoryChart from '../components/CategoryChart'
+
 import InvoicesList from '../components/InvoicesList'
+import ShopSettings from './ShopSettings'
 import { toast } from 'react-toastify'
 import { useNavigate, useLocation } from 'react-router-dom'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
 
+import useDebounce from '../hooks/useDebounce'
 
 function ShopOwnerDashboard() {
     const dispatch = useDispatch()
@@ -37,6 +42,7 @@ function ShopOwnerDashboard() {
 
     // State variables
     const [searchTerm, setSearchTerm] = useState('')
+    const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(10)
     const [activeTab, setActiveTabState] = useState('overview')
@@ -44,7 +50,7 @@ function ShopOwnerDashboard() {
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [isEditing, setIsEditing] = useState(false)
     const [editId, setEditId] = useState(null)
-    const [categoryFilter, setCategoryFilter] = useState('All')
+    const [selectedCategory, setSelectedCategory] = useState('All')
     const [isManualCategory, setIsManualCategory] = useState(false)
     const [showOffersOnly, setShowOffersOnly] = useState(false)
 
@@ -94,6 +100,7 @@ function ShopOwnerDashboard() {
         else if (path.includes('/invoices')) setActiveTabState('invoices');
         else if (path.includes('/suppliers/add')) setActiveTabState('add-supplier');
         else if (path.includes('/suppliers')) setActiveTabState('suppliers');
+        else if (path.includes('/settings')) setActiveTabState('settings');
         else if (path.includes('/emi')) setActiveTabState('emi');
         else if (path.includes('/billing')) setActiveTabState('billing');
         else if (path.includes('/analytics')) setActiveTabState('analytics');
@@ -117,6 +124,7 @@ function ShopOwnerDashboard() {
         else if (tab === 'billing') navigate('/shop/billing');
         else if (tab === 'analytics') navigate('/shop/analytics');
         else if (tab === 'discounts') navigate('/shop/discounts');
+        else if (tab === 'settings') navigate('/shop/settings');
         else if (tab === 'overview') navigate('/shop/overview');
     };
 
@@ -227,18 +235,28 @@ function ShopOwnerDashboard() {
         }
     }, [dispatch, user, activeTab, dateRange])
 
+    // Filter Products
     const filteredProducts = products.filter((product) => {
-        const matchesSearch = product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (product.skuCode && product.skuCode.toLowerCase().includes(searchTerm.toLowerCase()))
-        const matchesCategory = categoryFilter === 'All' || product.category === categoryFilter
+        const matchesSearch = (product.productName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+            (product.brand && product.brand.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+            (product.skuCode && product.skuCode.includes(debouncedSearchTerm)));
 
-        // Define what constitutes an "Offer"
-        const hasDirectOffer = product.onSpecialOffer || (product.discountedPrice && product.discountedPrice < product.sellingPrice);
+        const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+
+        // Offers Logic (Direct & Rules)
+        const hasDirectOffer = product.onSpecialOffer === true || product.onSpecialOffer === 'true' || product.onSpecialOffer === 1 ||
+            (product.discountedPrice && Number(product.discountedPrice) < Number(product.sellingPrice));
+
+        // Start/End date check for direct offers if they exist (assuming backend handles this mostly, but good to be safe)
+        // ... (Usually handled by `discountedPrice` existence logic in backend or scraper)
+
+        // Discount Rules Check
         const activeDiscounts = (Array.isArray(discounts) ? discounts : []).filter(d =>
             d.isActive &&
             (d.startDate ? new Date(d.startDate) <= new Date() : true) &&
             (d.endDate ? new Date(d.endDate) >= new Date() : true)
         );
+
         const hasDiscountRule = activeDiscounts.some(d =>
             d.scope === 'ShopWide' ||
             (d.scope === 'CategoryWide' && d.category === product.category) ||
@@ -246,7 +264,8 @@ function ShopOwnerDashboard() {
         );
 
         const matchesOffers = !showOffersOnly || hasDirectOffer || hasDiscountRule;
-        return matchesSearch && matchesCategory && matchesOffers
+
+        return matchesSearch && matchesCategory && matchesOffers;
     })
 
 
@@ -261,10 +280,157 @@ function ShopOwnerDashboard() {
         s.supplierName.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
-    const filteredEMIs = emis.filter((e) =>
-        e.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.customerMobile.includes(searchTerm)
-    )
+    const [emiStartDate, setEmiStartDate] = useState('');
+    const [emiEndDate, setEmiEndDate] = useState('');
+
+    const filteredEMIs = emis.filter((e) => {
+        const matchesSearch = e.customerName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+            e.customerMobile.includes(debouncedSearchTerm);
+
+
+        const matchDate = (() => {
+            if (!emiStartDate && !emiEndDate) return true;
+            // Filter based on Next Due Date or Creation Date? Usually due date is important for "Upcoming", but "Loans" report implies all loans.
+            // Let's filter by 'createdAt' if available, or just keep it simple.
+            // However, EMI schema usually has createdAt. Let's assume we want to export loans created in this period OR due in this period.
+            // The user asked "start date and end date filter based o that can export".
+            // Let's filter by Next Due Date for "Upcoming collections" view, OR created date for "Sales" view.
+            // Given the context of "EMI & Loans", let's filter by *Created Date* (Loan Start Date) which is safer for a "Report".
+            // Checking the EMI model might be useful but let's assume `createdAt` exists as it's a mongoose model.
+            // Wait, user said "restrict features dates".
+            // Let's try `createdAt` first.
+
+            const targetDate = new Date(e.createdAt);
+            const start = emiStartDate ? new Date(emiStartDate) : null;
+            const end = emiEndDate ? new Date(emiEndDate) : null;
+
+            if (start) start.setHours(0, 0, 0, 0);
+            if (end) end.setHours(23, 59, 59, 999);
+
+            if (start && end) return targetDate >= start && targetDate <= end;
+            if (start) return targetDate >= start;
+            if (end) return targetDate <= end;
+            return true;
+        })();
+
+        return matchesSearch && matchDate;
+    })
+
+    const exportEMIToExcel = async () => {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('EMI Loans Report');
+
+        // Styles
+        const titleStyle = { font: { name: 'Arial', family: 4, size: 18, underline: 'single', bold: true, color: { argb: 'FF006100' } }, alignment: { vertical: 'middle', horizontal: 'center' } };
+        const subTitleStyle = { font: { name: 'Arial', family: 4, size: 12, bold: true, color: { argb: 'FF1F497D' } }, alignment: { vertical: 'middle', horizontal: 'center' } };
+        const headerStyle = { font: { name: 'Arial', family: 4, size: 10, bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } }, alignment: { vertical: 'middle', horizontal: 'center' }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
+        const dataStyle = { font: { name: 'Arial', family: 4, size: 10 }, alignment: { vertical: 'middle', horizontal: 'left' }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
+        const centerDataStyle = { ...dataStyle, alignment: { vertical: 'middle', horizontal: 'center' } };
+
+        // 1. Title Row
+        worksheet.mergeCells('A1:H1');
+        const titleCell = worksheet.getCell('A1');
+        titleCell.value = 'EMI & LOANS REPORT';
+        titleCell.style = titleStyle;
+        worksheet.getRow(1).height = 30;
+
+        // 2. Subtitle Row
+        worksheet.mergeCells('A2:H2');
+        const subTitleCell = worksheet.getCell('A2');
+        subTitleCell.value = currentShop?.shopName || 'Billing System';
+        subTitleCell.style = subTitleStyle;
+        worksheet.getRow(2).height = 20;
+
+        // 3. Date Row
+        worksheet.mergeCells('A3:E3');
+        const dateCell = worksheet.getCell('A3');
+        dateCell.value = `Report Period: ${emiStartDate || 'Start'} to ${emiEndDate || 'Now'} | Generated: ${new Date().toLocaleString()}`;
+        dateCell.font = { italic: true, size: 10 };
+        worksheet.getRow(3).height = 20;
+
+        // 4. Header Row
+        const headerRow = worksheet.getRow(6);
+        const headers = ['CUSTOMER NAME', 'MOBILE', 'TOTAL PAYABLE (₹)', 'PAID AMOUNT (₹)', 'REMAINING (₹)', 'INSTALLMENTS', 'NEXT DUE DATE', 'STATUS'];
+        headerRow.values = headers;
+        headerRow.height = 25;
+        headerRow.eachCell((cell) => {
+            cell.style = headerStyle;
+        });
+
+        // 5. Data Rows
+        let totalPayable = 0;
+        let totalPaid = 0;
+        let totalRemaining = 0;
+
+        filteredEMIs.forEach((emi) => {
+            const payable = Number(emi.totalPayable) || 0;
+            const paid = Number(emi.totalPaid) || 0;
+            const remaining = Number(emi.remainingAmount) || 0;
+
+            totalPayable += payable;
+            totalPaid += paid;
+            totalRemaining += remaining;
+
+            const row = worksheet.addRow([
+                emi.customerName,
+                emi.customerMobile,
+                payable.toFixed(2),
+                paid.toFixed(2),
+                remaining.toFixed(2),
+                `${emi.installmentsPaid || 0} / ${emi.tenureValue}`,
+                new Date(emi.nextDueDate).toLocaleDateString(),
+                emi.emiStatus
+            ]);
+
+            row.eachCell((cell, colNumber) => {
+                if (colNumber >= 6) { // Installments, Date, Status Center
+                    cell.style = centerDataStyle;
+                } else {
+                    cell.style = dataStyle;
+                }
+            });
+        });
+
+        // 6. Summary
+        const lastRowIdx = worksheet.lastRow.number + 2;
+
+        const summaryLabelStyle = { font: { bold: true }, alignment: { horizontal: 'right' } };
+        const summaryValueStyle = { font: { bold: true }, alignment: { horizontal: 'left' } };
+
+        const sumRow1 = worksheet.getRow(lastRowIdx);
+        sumRow1.getCell(3).value = 'TOTAL PAYABLE:';
+        sumRow1.getCell(3).style = { ...summaryLabelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } } };
+        sumRow1.getCell(4).value = totalPayable.toFixed(2);
+        sumRow1.getCell(4).style = { ...summaryValueStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } } };
+
+        const sumRow2 = worksheet.getRow(lastRowIdx + 1);
+        sumRow2.getCell(3).value = 'TOTAL PAID:';
+        sumRow2.getCell(3).style = { ...summaryLabelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } } };
+        sumRow2.getCell(4).value = totalPaid.toFixed(2);
+        sumRow2.getCell(4).style = { ...summaryValueStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } } };
+
+        const sumRow3 = worksheet.getRow(lastRowIdx + 2);
+        sumRow3.getCell(3).value = 'TOTAL REMAINING:';
+        sumRow3.getCell(3).style = { ...summaryLabelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } } };
+        sumRow3.getCell(4).value = totalRemaining.toFixed(2);
+        sumRow3.getCell(4).style = { ...summaryValueStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } } };
+
+
+        worksheet.columns = [
+            { width: 25 },
+            { width: 15 },
+            { width: 20 },
+            { width: 20 },
+            { width: 20 },
+            { width: 15 },
+            { width: 15 },
+            { width: 15 },
+        ];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, `EMI_Loans_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
 
     const handleInputChange = (e) => {
         setFormData((prev) => ({
@@ -462,6 +628,134 @@ function ShopOwnerDashboard() {
         dispatch(updateDiscount({ id, discountData: { isActive: !isActive } }))
     }
 
+    // Export to Excel Function
+    const exportToExcel = async () => {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Products Inventory');
+
+        // Styles
+        const titleStyle = { font: { name: 'Arial', family: 4, size: 18, underline: 'single', bold: true, color: { argb: 'FF006100' } }, alignment: { vertical: 'middle', horizontal: 'center' } };
+        const subTitleStyle = { font: { name: 'Arial', family: 4, size: 12, bold: true, color: { argb: 'FF1F497D' } }, alignment: { vertical: 'middle', horizontal: 'center' } };
+        const headerStyle = { font: { name: 'Arial', family: 4, size: 10, bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } }, alignment: { vertical: 'middle', horizontal: 'center' }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
+        const dataStyle = { font: { name: 'Arial', family: 4, size: 10 }, alignment: { vertical: 'middle', horizontal: 'left' }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
+        const centerDataStyle = { ...dataStyle, alignment: { vertical: 'middle', horizontal: 'center' } };
+
+        // 1. Title Row
+        worksheet.mergeCells('A1:J1');
+        const titleCell = worksheet.getCell('A1');
+        titleCell.value = 'FULL PRODUCT INVENTORY REPORT';
+        titleCell.style = titleStyle;
+        worksheet.getRow(1).height = 30;
+
+        // 2. Subtitle Row
+        worksheet.mergeCells('A2:J2');
+        const subTitleCell = worksheet.getCell('A2');
+        subTitleCell.value = 'MS TECH HIVE - Billing System'; // Or dynamically use shop name
+        subTitleCell.style = subTitleStyle;
+        worksheet.getRow(2).height = 20;
+
+        // 3. Date Row
+        worksheet.mergeCells('A3:D3');
+        const dateCell = worksheet.getCell('A3');
+        dateCell.value = `Report Generation Date: ${new Date().toLocaleString()}`;
+        dateCell.font = { italic: true, size: 10 };
+        worksheet.getRow(3).height = 20;
+
+
+        // 4. Header Row
+        const headerRow = worksheet.getRow(6);
+        const headers = ['PRODUCT NAME', 'BRAND', 'CATEGORY', 'PURCHASE PRICE (₹)', 'SELLING PRICE (₹)', 'GST %', 'CURRENT STOCK', 'MIN STOCK', 'WARRANTY', 'DESCRIPTION'];
+        headerRow.values = headers;
+        headerRow.height = 25;
+        headerRow.eachCell((cell) => {
+            cell.style = headerStyle;
+        });
+
+        // 5. Data Rows
+        let totalStock = 0;
+        let totalBuyValue = 0;
+        let totalSellValue = 0;
+
+        filteredProducts.forEach((product) => {
+            const stock = Number(product.stockQuantity) || 0;
+            const buyPrice = Number(product.purchasePrice) || 0;
+            const sellPrice = Number(product.sellingPrice) || 0;
+
+            totalStock += stock;
+            totalBuyValue += (stock * buyPrice);
+            totalSellValue += (stock * sellPrice);
+
+            const row = worksheet.addRow([
+                product.productName,
+                product.brand,
+                product.category,
+                product.purchasePrice,
+                product.sellingPrice,
+                product.gstPercent,
+                product.stockQuantity,
+                product.minStock || '5', // Default if missing
+                `${product.warrantyMonths} Months`,
+                product.description || 'No Description'
+            ]);
+
+            // Apply styles to data cells
+            row.eachCell((cell, colNumber) => {
+                if (colNumber >= 7) { // Stock, MinStock, Warranty, Desc - Center align
+                    cell.style = centerDataStyle;
+                } else {
+                    cell.style = dataStyle;
+                }
+            });
+        });
+
+        // 6. Summary Section
+        const lastRowIdx = worksheet.lastRow.number + 3; // Leave 2 empty rows
+
+        // Styles for summary
+        const summaryLabelStyle = { font: { bold: true }, alignment: { horizontal: 'right' } };
+        const summaryValueStyle = { font: { bold: true }, alignment: { horizontal: 'left' } };
+
+        // Total Stock
+        const stockRow = worksheet.getRow(lastRowIdx);
+        stockRow.getCell(6).value = 'TOTAL STOCK QTY';
+        stockRow.getCell(6).style = { ...summaryLabelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } } }; // Light Green
+        stockRow.getCell(7).value = totalStock;
+        stockRow.getCell(7).style = { ...summaryValueStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } } };
+
+        // Total Buy Value
+        const buyRow = worksheet.getRow(lastRowIdx + 1);
+        buyRow.getCell(3).value = 'TOTAL INVENTORY BUY VALUE';
+        buyRow.getCell(3).style = { ...summaryLabelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } } }; // Light Blue
+        buyRow.getCell(4).value = totalBuyValue.toLocaleString();
+        buyRow.getCell(4).style = { ...summaryValueStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } } };
+
+        // Total Sell Value
+        const sellRow = worksheet.getRow(lastRowIdx + 2);
+        sellRow.getCell(4).value = 'TOTAL INVENTORY SELL VALUE';
+        sellRow.getCell(4).style = { ...summaryLabelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } } }; // Greenish
+        sellRow.getCell(5).value = totalSellValue.toLocaleString();
+        sellRow.getCell(5).style = { ...summaryValueStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } } };
+
+        // Column Widths
+        worksheet.columns = [
+            { width: 30 }, // Product Name
+            { width: 15 }, // Brand
+            { width: 20 }, // Category
+            { width: 15 }, // Purchase Price
+            { width: 15 }, // Selling Price
+            { width: 10 }, // GST
+            { width: 15 }, // Stock
+            { width: 12 }, // Min Stock
+            { width: 15 }, // Warranty
+            { width: 40 }  // Description
+        ];
+
+        // Generate and Save
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, `products_inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     return (
         <div className="flex h-screen bg-gray-50 dark:bg-gray-900 font-sans transition-colors overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
             {/* Sidebar Navigation */}
@@ -488,7 +782,7 @@ function ShopOwnerDashboard() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <StatsCard
                                     title="Total Revenue"
-                                    value={`₹${stats.monthlyRevenue?.toLocaleString() || 0}`}
+                                    value={`₹${Math.round(stats.monthlyRevenue || 0).toLocaleString()}`}
                                     icon={IndianRupee}
                                     color="green"
                                     trend="up"
@@ -563,7 +857,7 @@ function ShopOwnerDashboard() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                                 <StatsCard
                                     title="Total Profit"
-                                    value={`₹${stats?.totalProfit?.toLocaleString() || 0}`}
+                                    value={`₹${Math.round(stats?.totalProfit || 0).toLocaleString()}`}
                                     icon={TrendingUp}
                                     color="emerald"
                                     trend="up"
@@ -571,7 +865,7 @@ function ShopOwnerDashboard() {
                                 />
                                 <StatsCard
                                     title="Product Expenses"
-                                    value={`₹${totalExpenses.toLocaleString()}`}
+                                    value={`₹${Math.round(totalExpenses).toLocaleString()}`}
                                     icon={Calculator}
                                     color="orange"
                                     trend="neutral"
@@ -586,7 +880,7 @@ function ShopOwnerDashboard() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 flex flex-col items-center text-center">
                                             <p className="text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase tracking-widest mb-1">Stock Value</p>
-                                            <p className="text-xl font-black text-blue-600 dark:text-blue-400">₹{totalExpenses.toLocaleString()}</p>
+                                            <p className="text-xl font-black text-blue-600 dark:text-blue-400">₹{Math.round(totalExpenses).toLocaleString()}</p>
                                             <p className="text-[9px] text-blue-500 dark:text-blue-400 mt-1 leading-tight">Total capital invested in stock.</p>
                                         </div>
                                         <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800 flex flex-col items-center text-center">
@@ -599,7 +893,7 @@ function ShopOwnerDashboard() {
                                     </div>
                                     <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800 flex flex-col items-center text-center">
                                         <p className="text-[10px] font-bold text-purple-800 dark:text-purple-300 uppercase tracking-widest mb-1">Period Profit</p>
-                                        <p className="text-2xl font-black text-purple-600 dark:text-purple-400">₹{stats?.totalProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-2xl font-black text-purple-600 dark:text-purple-400">₹{Math.round(stats?.totalProfit || 0).toLocaleString()}</p>
                                         <p className="text-[10px] text-purple-500 dark:text-purple-400 mt-1">Calculated for the selected date range.</p>
                                     </div>
                                 </div>
@@ -618,9 +912,9 @@ function ShopOwnerDashboard() {
                                     <div className="relative group">
                                         <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <select
-                                            value={categoryFilter}
+                                            value={selectedCategory}
                                             onChange={(e) => {
-                                                setCategoryFilter(e.target.value)
+                                                setSelectedCategory(e.target.value)
                                                 setCurrentPage(1)
                                             }}
                                             className="pl-9 pr-8 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer hover:bg-white dark:hover:bg-gray-700"
@@ -675,10 +969,16 @@ function ShopOwnerDashboard() {
                                         <Plus size={18} /> Add Product
                                     </button>
                                     <button
+                                        onClick={exportToExcel}
+                                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
+                                    >
+                                        <Download size={18} /> Export
+                                    </button>
+                                    <button
                                         onClick={() => setActiveTab('add-bulk')}
                                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
                                     >
-                                        <Download size={18} /> Import
+                                        <Upload size={18} /> Import
                                     </button>
                                 </div>
                             </div>
@@ -741,7 +1041,7 @@ function ShopOwnerDashboard() {
                                                             return (
                                                                 <div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">&#8377;{finalPrice}</div>
+                                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">&#8377;{Math.round(finalPrice)}</div>
                                                                         {product.onSpecialOffer && (
                                                                             <span className="text-[10px] bg-red-100 text-red-600 dark:bg-red-900/40 px-1 rounded font-black uppercase">
                                                                                 OFFER
@@ -754,7 +1054,7 @@ function ShopOwnerDashboard() {
                                                                         )}
                                                                     </div>
                                                                     {hasOffer ? (
-                                                                        <div className="text-[10px] line-through text-gray-400">&#8377;{product.sellingPrice}</div>
+                                                                        <div className="text-[10px] line-through text-gray-400">&#8377;{Math.round(product.sellingPrice)}</div>
                                                                     ) : (
                                                                         <div className="text-xs text-green-600 dark:text-green-400 font-medium">+ GST {product.gstPercent}%</div>
                                                                     )}
@@ -824,7 +1124,7 @@ function ShopOwnerDashboard() {
 
                     {/* INVOICES TAB */}
                     {activeTab === 'invoices' && (
-                        <InvoicesList searchTerm={searchTerm} />
+                        <InvoicesList searchTerm={debouncedSearchTerm} />
                     )}
 
                     {/* SUPPLIERS TAB */}
@@ -879,6 +1179,34 @@ function ShopOwnerDashboard() {
                                     <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><CreditCard className="text-purple-600 dark:text-purple-400" /> EMI & Loans</h2>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage customer loan payments and schedules</p>
                                 </div>
+                                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-end">
+                                    <div className='flex gap-2 items-center'>
+                                        <div className="flex flex-col">
+                                            <label className="text-[10px] uppercase font-bold text-gray-400">Start Date</label>
+                                            <input
+                                                type="date"
+                                                className="p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                                                value={emiStartDate}
+                                                onChange={(e) => setEmiStartDate(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <label className="text-[10px] uppercase font-bold text-gray-400">End Date</label>
+                                            <input
+                                                type="date"
+                                                className="p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                                                value={emiEndDate}
+                                                onChange={(e) => setEmiEndDate(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={exportEMIToExcel}
+                                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm h-[38px] mb-[1px]"
+                                    >
+                                        <Download size={18} /> Export
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="overflow-x-auto custom-scrollbar">
@@ -902,15 +1230,15 @@ function ShopOwnerDashboard() {
                                                         <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-1"><Phone size={12} className="mr-1" /> {emi.customerMobile}</div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="text-sm text-gray-900 dark:text-white font-bold">₹{emi.totalPayable?.toFixed(0)}</div>
+                                                        <div className="text-sm text-gray-900 dark:text-white font-bold">₹{Math.round(emi.totalPayable || 0)}</div>
                                                         <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase font-bold tracking-wider">Payable</div>
-                                                        <div className="text-xs text-purple-600 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded inline-block mt-2">₹{emi.emiAmount}/mo</div>
+                                                        <div className="text-xs text-purple-600 dark:text-purple-400 font-medium bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded inline-block mt-2">₹{Math.round(emi.emiAmount || 0)}/mo</div>
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="space-y-1.5">
                                                             <div className="flex justify-between text-[10px] font-bold">
-                                                                <span className="text-green-600 dark:text-green-400">PAID: ₹{emi.totalPaid || 0}</span>
-                                                                <span className="text-red-600 dark:text-red-400">BAL: ₹{emi.remainingAmount || 0}</span>
+                                                                <span className="text-green-600 dark:text-green-400">PAID: ₹{Math.round(emi.totalPaid || 0)}</span>
+                                                                <span className="text-red-600 dark:text-red-400">BAL: ₹{Math.round(emi.remainingAmount || 0)}</span>
                                                             </div>
                                                             <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
                                                                 <div
@@ -1071,7 +1399,7 @@ function ShopOwnerDashboard() {
                                                 </p>
                                                 <div className="flex items-center gap-3">
                                                     <div className="text-3xl font-black text-orange-600 dark:text-orange-400">
-                                                        {discount.discountType === 'Percentage' ? `${discount.value}%` : `₹${discount.value}`}
+                                                        {discount.discountType === 'Percentage' ? `${discount.value}%` : `₹${Math.round(discount.value)}`}
                                                     </div>
                                                     <div className="text-[10px] leading-tight text-gray-400 font-bold uppercase">
                                                         Off on <br />
@@ -1109,7 +1437,7 @@ function ShopOwnerDashboard() {
 
                     {/* BILLING / POS TAB */}
                     {activeTab === 'billing' && (
-                        <BillingPage searchTerm={searchTerm} onNavigate={setActiveTab} />
+                        <BillingPage searchTerm={debouncedSearchTerm} onNavigate={setActiveTab} />
                     )}
 
                     {/* ADD SUPPLIER FORM */}
@@ -1400,6 +1728,13 @@ function ShopOwnerDashboard() {
                             </div>
 
                             <button onClick={() => setActiveTab('list')} className="mt-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">Cancel & Go Back</button>
+                        </div>
+                    )}
+
+                    {/* SETTINGS TAB */}
+                    {activeTab === 'settings' && (
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 h-full overflow-hidden">
+                            <ShopSettings />
                         </div>
                     )}
 

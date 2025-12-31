@@ -1,8 +1,8 @@
-const Shop = require('../models/Shop');
-const User = require('../models/User');
-const fs = require('fs');
-const csv = require('csv-parser');
-const bcrypt = require('bcrypt'); // Needed if creating passwords manually, though User model pre-save handles hashing if using instance
+import Shop from '../models/Shop.js';
+import User from '../models/User.js';
+import fs from 'fs';
+import csv from 'csv-parser';
+import bcrypt from 'bcrypt';
 
 
 // @desc    Create a new shop (Super Admin)
@@ -158,4 +158,33 @@ const importShops = async (req, res) => {
         });
 };
 
-module.exports = { createShop, getShops, getShopById, importShops };
+// @desc    Update Shop Settings
+// @route   PUT /api/shops/profile
+// @access  Private/Owner
+const updateShopSettings = async (req, res) => {
+    try {
+        const { shopName, address, phone, email, gstNumber, logo, terms } = req.body;
+
+        // Find shop by ownerId (assuming 1 shop per owner for now)
+        const shop = await Shop.findOne({ ownerId: req.user._id });
+
+        if (shop) {
+            shop.shopName = shopName || shop.shopName;
+            shop.address = address || shop.address;
+            shop.phone = phone || shop.phone;
+            shop.email = email || shop.email;
+            shop.gstNumber = gstNumber || shop.gstNumber;
+            shop.logo = logo || shop.logo;
+            shop.terms = terms || shop.terms;
+
+            const updatedShop = await shop.save();
+            res.json(updatedShop);
+        } else {
+            res.status(404).json({ message: 'Shop not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+export { createShop, getShops, getShopById, importShops, updateShopSettings };

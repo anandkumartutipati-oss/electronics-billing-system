@@ -1,7 +1,8 @@
-const Product = require('../models/Product');
-const fs = require('fs');
-const csv = require('csv-parser');
-const Shop = require('../models/Shop');
+import Product from '../models/Product.js';
+import fs from 'fs';
+import csv from 'csv-parser';
+import Shop from '../models/Shop.js';
+import Supplier from '../models/Supplier.js';
 
 
 // @desc    Create a product
@@ -208,8 +209,7 @@ const importProducts = async (req, res) => {
     let successCount = 0;
 
     // Helper to find shop and supplier
-    const Shop = require('../models/Shop');
-    const Supplier = require('../models/Supplier');
+    // Helper to find shop and supplier - Imported at top
 
     fs.createReadStream(req.file.path)
         .pipe(csv({
@@ -320,4 +320,4 @@ const importProducts = async (req, res) => {
 };
 
 
-module.exports = { createProduct, getProducts, updateProduct, importProducts };
+export { createProduct, getProducts, updateProduct, importProducts };

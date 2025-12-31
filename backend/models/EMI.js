@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const emiSchema = mongoose.Schema({
     shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
@@ -23,4 +23,4 @@ const emiSchema = mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('EMI', emiSchema);
+export default mongoose.model('EMI', emiSchema);

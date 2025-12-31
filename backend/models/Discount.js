@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const discountSchema = mongoose.Schema({
     shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
@@ -29,4 +29,4 @@ const discountSchema = mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Discount', discountSchema);
+export default mongoose.model('Discount', discountSchema);

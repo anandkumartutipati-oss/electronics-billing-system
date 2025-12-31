@@ -1,4 +1,4 @@
-const Supplier = require('../models/Supplier');
+import Supplier from '../models/Supplier.js';
 
 // @desc    Create a new supplier
 // @route   POST /api/suppliers
@@ -70,4 +70,4 @@ const deleteSupplier = async (req, res) => {
     }
 };
 
-module.exports = { createSupplier, getSuppliers, deleteSupplier };
+export { createSupplier, getSuppliers, deleteSupplier };

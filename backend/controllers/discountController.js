@@ -1,6 +1,6 @@
-const Discount = require('../models/Discount');
-const Product = require('../models/Product');
-const Invoice = require('../models/Invoice');
+import Discount from '../models/Discount.js';
+import Product from '../models/Product.js';
+import Invoice from '../models/Invoice.js';
 
 // @desc    Create a discount rule
 // @route   POST /api/discounts
@@ -129,4 +129,4 @@ const calculateBestDiscount = async (shopId, items, customerId = null) => {
     });
 };
 
-module.exports = { createDiscount, getDiscounts, updateDiscount, calculateBestDiscount };
+export { createDiscount, getDiscounts, updateDiscount, calculateBestDiscount };

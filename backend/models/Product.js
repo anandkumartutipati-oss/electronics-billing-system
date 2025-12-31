@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const productSchema = mongoose.Schema({
     shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
@@ -35,4 +35,4 @@ const productSchema = mongoose.Schema({
 // Compound index to ensure SKU is unique per shop
 productSchema.index({ shopId: 1, skuCode: 1 }, { unique: true });
 
-module.exports = mongoose.model('Product', productSchema);
+export default mongoose.model('Product', productSchema);

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const emiPaymentSchema = mongoose.Schema({
     emiId: { type: mongoose.Schema.Types.ObjectId, ref: 'EMI', required: true },
@@ -11,4 +11,4 @@ const emiPaymentSchema = mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('EmiPayment', emiPaymentSchema);
+export default mongoose.model('EmiPayment', emiPaymentSchema);
