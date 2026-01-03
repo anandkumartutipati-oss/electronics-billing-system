@@ -123,7 +123,7 @@ const importShops = async (req, res) => {
                     if (!shopExists) {
                         const shop = await Shop.create({
                             shopName: row.shopName,
-                            shopType: row.shopType ? row.shopType.toLowerCase() : 'both',
+                            shopType: row.shopType ? (row.shopType.toLowerCase() === 'both' ? 'Electronics & Electrical' : row.shopType) : 'Electronics & Electrical',
                             ownerId: owner._id,
                             phone: row.phone,
                             email: row.ownerEmail, // Use owner email for shop contact if not provided
@@ -187,4 +187,85 @@ const updateShopSettings = async (req, res) => {
     }
 };
 
-export { createShop, getShops, getShopById, importShops, updateShopSettings };
+// @desc    Update Shop (SuperAdmin)
+// @route   PUT /api/shops/:id
+// @access  Private/SuperAdmin
+const updateShop = async (req, res) => {
+    try {
+        const {
+            shopName,
+            shopType,
+            phone,
+            email,
+            address,
+            city,
+            state,
+            pincode,
+            gstNumber,
+            isActive,
+            ownerName,   // Capture ownerName from body
+            ownerEmail,  // Capture ownerEmail from body
+            ownerPassword // Capture ownerPassword from body
+        } = req.body;
+
+        const shop = await Shop.findById(req.params.id);
+
+        if (shop) {
+            // Update Shop Details
+            shop.shopName = shopName || shop.shopName;
+            shop.shopType = shopType || shop.shopType;
+            shop.phone = phone || shop.phone;
+            shop.email = ownerEmail || email || shop.email; // Use ownerEmail if provided, else email, else keep existing
+            shop.address = address || shop.address;
+            shop.city = city || shop.city;
+            shop.state = state || shop.state;
+            shop.pincode = pincode || shop.pincode;
+            shop.gstNumber = gstNumber || shop.gstNumber;
+
+            if (isActive !== undefined) {
+                shop.isActive = isActive;
+            }
+
+            // Handle Owner User Update (Name, Email, Password)
+            if (shop.ownerId) {
+                const owner = await User.findById(shop.ownerId);
+                if (owner) {
+                    let userUpdated = false;
+
+                    if (ownerName && owner.name !== ownerName) {
+                        owner.name = ownerName;
+                        userUpdated = true;
+                    }
+
+                    if (ownerEmail && owner.email !== ownerEmail) {
+                        // Check if email already exists
+                        const emailExists = await User.findOne({ email: ownerEmail });
+                        if (emailExists && emailExists._id.toString() !== owner._id.toString()) {
+                            return res.status(400).json({ message: 'Email already in use by another user' });
+                        }
+                        owner.email = ownerEmail;
+                        userUpdated = true;
+                    }
+
+                    if (ownerPassword) {
+                        owner.password = ownerPassword; // User model handles hashing
+                        userUpdated = true;
+                    }
+
+                    if (userUpdated) {
+                        await owner.save();
+                    }
+                }
+            }
+
+            const updatedShop = await shop.save();
+            res.json(updatedShop);
+        } else {
+            res.status(404).json({ message: 'Shop not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+export { createShop, getShops, getShopById, importShops, updateShopSettings, updateShop };
