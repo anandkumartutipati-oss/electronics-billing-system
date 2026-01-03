@@ -47,11 +47,11 @@ const ShopSettings = () => {
         }
 
         const formDataUpload = new FormData();
-        formDataUpload.append('logo', file);
+        formDataUpload.append('image', file);
 
         setUploading(true);
         try {
-            const response = await fetch(`${BASE_URL}/shops/upload`, {
+            const response = await fetch(`${BASE_URL}/upload`, {
                 method: 'POST',
                 body: formDataUpload,
             });
@@ -59,7 +59,7 @@ const ShopSettings = () => {
             const data = await response.json();
             if (response.ok) {
                 const cleanBase = BASE_URL.replace('/api', '');
-                const fullLogoUrl = data.logoUrl.startsWith('http') ? data.logoUrl : `${cleanBase}${data.logoUrl}`;
+                const fullLogoUrl = data.imagePath.startsWith('http') ? data.imagePath : `${cleanBase}${data.imagePath}`;
 
                 setFormData(prev => ({ ...prev, logo: fullLogoUrl }));
                 toast.success("Logo uploaded successfully!");

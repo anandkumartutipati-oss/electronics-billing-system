@@ -11,6 +11,7 @@ import { reset as resetDiscounts } from '../features/discounts/discountSlice';
 import { reset as resetInvoices } from '../features/invoices/invoiceSlice';
 import { useState } from 'react';
 import ConfirmationModal from './ConfirmationModal';
+import { useEffect } from 'react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const location = useLocation();
@@ -22,6 +23,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     // Logout Modal State
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [logoError, setLogoError] = useState(false);
+
+    useEffect(() => {
+        setLogoError(false);
+    }, [currentShop?.logo]);
 
     const onLogoutClick = () => {
         setIsLogoutModalOpen(true);
@@ -57,8 +62,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { id: 'billing', label: 'New Bill (POS)', icon: Calculator, path: '/shop/billing' },
         { id: 'invoices', label: 'Invoices', icon: FileText, path: '/shop/invoices' },
         { id: 'suppliers', label: 'Suppliers', icon: Truck, path: '/shop/suppliers' },
-        { id: 'emi', label: 'EMI / Loans', icon: CreditCard, path: '/shop/emi' },
-        { id: 'discounts', label: 'Discounts', icon: Tag, path: '/shop/discounts' },
+        // { id: 'emi', label: 'EMI / Loans', icon: CreditCard, path: '/shop/emi' },
+        // { id: 'discounts', label: 'Discounts', icon: Tag, path: '/shop/discounts' },
         { id: 'settings', label: 'Settings', icon: Users, path: '/shop/settings' },
 
     ];
@@ -84,6 +89,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800 overflow-hidden flex-shrink-0">
                             {currentShop?.logo && !logoError ? (
                                 <img
+                                    key={currentShop.logo}
                                     src={currentShop.logo}
                                     alt="Logo"
                                     className="w-full h-full object-cover"

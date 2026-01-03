@@ -959,13 +959,13 @@ function ShopOwnerDashboard() {
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
-                                    <button
+                                    {/* <button
                                         onClick={() => setShowOffersOnly(!showOffersOnly)}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${showOffersOnly ? 'bg-orange-500 text-white shadow-orange-500/30' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:bg-gray-50'}`}
                                     >
                                         <Tag size={14} className={showOffersOnly ? 'text-white' : 'text-orange-500'} />
                                         Offers Available
-                                    </button>
+                                    </button> */}
 
                                     <button
                                         onClick={() => {

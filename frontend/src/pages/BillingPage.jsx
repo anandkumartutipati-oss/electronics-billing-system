@@ -331,13 +331,13 @@ function BillingPage({ onNavigate, searchTerm }) {
                         <ShoppingCart className="text-blue-600 dark:text-blue-400" /> Products
                     </h2>
                     <div className="flex items-center gap-2">
-                        <button
+                        {/* <button
                             onClick={() => setShowOffersOnly(!showOffersOnly)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border ${showOffersOnly ? 'bg-orange-500 text-white border-orange-400 shadow-lg shadow-orange-500/20' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-100 dark:border-gray-700 hover:bg-gray-50'}`}
                         >
                             <Tag size={12} className={showOffersOnly ? 'text-white' : 'text-orange-500'} />
                             OFFERS
-                        </button>
+                        </button> */}
                         <select
                             value={categoryFilter}
                             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -511,13 +511,13 @@ function BillingPage({ onNavigate, searchTerm }) {
                 <div className="bg-white/90 dark:bg-gray-800/90 border-t border-gray-200 dark:border-gray-700 p-5 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] backdrop-blur-md">
                     {/* Payment Mode Selection */}
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-none">
-                        {['Cash', 'UPI', 'Card', 'EMI', 'Mixed'].map(mode => (
+                        {['Cash', 'UPI', 'Card', 'Mixed'].map(mode => (
                             <button
                                 key={mode}
                                 onClick={() => {
                                     setPaymentMode(mode)
                                     if (mode !== 'Mixed') {
-                                        setSplitPayments({ cash: '', upi: '', card: '', emi: '' })
+                                        setSplitPayments({ cash: '', upi: '', card: ''})
                                     }
                                 }}
                                 className={`px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex-1 border ${paymentMode === mode ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30 shadow-lg' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
@@ -560,7 +560,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     onBlur={(e) => setSplitPayments({ ...splitPayments, card: e.target.value === '' ? 0 : Number(e.target.value) })}
                                 />
                             </div>
-                            <div>
+                            {/* <div>
                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">EMI Downpayment</label>
                                 <input
                                     type="number"
@@ -569,7 +569,7 @@ function BillingPage({ onNavigate, searchTerm }) {
                                     onChange={(e) => e.target.value >= 0 && setSplitPayments({ ...splitPayments, emi: e.target.value })}
                                     onBlur={(e) => setSplitPayments({ ...splitPayments, emi: e.target.value === '' ? 0 : Number(e.target.value) })}
                                 />
-                            </div>
+                            </div> */}
                             <div className="col-span-2 pt-2 border-t dark:border-gray-700 flex justify-between items-center">
                                 <span className="text-xs font-bold text-gray-500 uppercase">Remaining to pay</span>
                                 <span className={`text-lg font-black ${(Number(splitPayments.cash) + Number(splitPayments.upi) + Number(splitPayments.card) + Number(splitPayments.emi)) > Math.round(grandTotal) ? 'text-red-500' : 'text-blue-600'}`}>
