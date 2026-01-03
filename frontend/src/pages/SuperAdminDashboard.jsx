@@ -6,7 +6,7 @@ import { getProducts } from '../features/products/productSlice'
 import { getSuperAdminStats } from '../features/dashboard/dashboardSlice'
 import { reset as resetAuth, updateProfile } from '../features/auth/authSlice'
 import { toast } from 'react-toastify'
-import { Plus, Upload, Building2, User, Phone, MapPin, Search, Package, Eye, DollarSign, AlertCircle, TrendingUp, Download, DownloadCloud, Tag, FileText, ShoppingCart, CreditCard } from 'lucide-react'
+import { Plus, Upload, Building2, User, Phone, MapPin, Search, Package, Eye, EyeOff, DollarSign, AlertCircle, TrendingUp, Download, DownloadCloud, Tag, FileText, ShoppingCart, CreditCard } from 'lucide-react'
 import ProductDetails from '../components/ProductDetails'
 import ConfirmationModal from '../components/ConfirmationModal'
 import Sidebar from '../components/Sidebar'
@@ -127,6 +127,8 @@ function SuperAdminDashboard() {
         state: '',
         pincode: ''
     })
+
+    const [showPassword, setShowPassword] = useState(false)
 
     const { shopName, shopType, name, email, password, phone, address, city, state, pincode } = formData
 
@@ -557,7 +559,7 @@ function SuperAdminDashboard() {
                                         <select name="shopType" value={shopType} onChange={onChange} className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
                                             <option value="electronics">Electronics</option>
                                             <option value="electrical">Electrical</option>
-                                            <option value="both">Both</option>
+                                            <option value="Electronics & Electrical">Electronics & Electrical</option>
                                         </select>
                                     </div>
                                 </div>
@@ -573,7 +575,23 @@ function SuperAdminDashboard() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Owner Password</label>
-                                        <input type="password" name="password" value={password} onChange={onChange} required className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" />
+                                        
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                name="password"
+                                                value={password}
+                                                onChange={onChange}
+                                                className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none pr-10"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute inset-y-0 right-0 top-1 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                            >
+                                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Shop Phone</label>
